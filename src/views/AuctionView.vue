@@ -239,35 +239,52 @@ async function startAuction() {
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-4xl font-bold mb-8 text-center">COMET Auction</h1>
 
-      <!-- Debug Panel (only shown when wallet connected) -->
-      <div v-if="wallet.connected && !auctionData" class="card bg-base-300 shadow-xl mb-4 border-2 border-warning">
+      <!-- Debug Panel (ALWAYS shown when wallet connected - persistent) -->
+      <div v-if="wallet.connected" class="card bg-base-300 shadow-xl mb-4 border-2 border-warning">
         <div class="card-body">
-          <h3 class="card-title text-sm">🔧 Debug Info</h3>
+          <h3 class="card-title text-sm">🔧 Debug Info (Bot Detection)</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
             <div>
               <strong>Connected:</strong> {{ wallet.connected ? '✅' : '❌' }}
             </div>
             <div>
+              <strong>Loading Box:</strong> {{ loading.box ? '⏳' : '✅' }}
+            </div>
+            <div class="md:col-span-2">
               <strong>Change Address:</strong><br/>
-              <span class="text-xs break-all">{{ wallet.changeAddress || 'N/A' }}</span>
+              <span class="text-xs break-all bg-base-100 p-1 rounded">{{ wallet.changeAddress || 'N/A' }}</span>
+            </div>
+            <div class="md:col-span-2">
+              <strong>Expected Bot PK:</strong><br/>
+              <span class="text-xs break-all bg-base-100 p-1 rounded">{{ BOT_PK }}</span>
             </div>
             <div>
-              <strong>Bot PK:</strong><br/>
-              <span class="text-xs break-all">{{ BOT_PK }}</span>
+              <strong>Addresses Match:</strong> {{ wallet.changeAddress === BOT_PK ? '✅ YES' : '❌ NO' }}
             </div>
             <div>
-              <strong>Is Bot Wallet:</strong> {{ isBotWallet ? '✅ YES' : '❌ NO' }}
+              <strong>Is Bot Wallet:</strong>
+              <span :class="isBotWallet ? 'text-success font-bold' : 'text-error font-bold'">
+                {{ isBotWallet ? '✅ YES' : '❌ NO' }}
+              </span>
+            </div>
+            <div class="md:col-span-2">
+              <strong>All Used Addresses ({{ wallet.usedAddresses.length }}):</strong><br/>
+              <div class="text-xs break-all bg-base-100 p-1 rounded max-h-20 overflow-y-auto">
+                {{ wallet.usedAddresses.length > 0 ? wallet.usedAddresses.join('\n') : 'None loaded yet' }}
+              </div>
             </div>
             <div>
-              <strong>Used Addresses:</strong><br/>
-              <span class="text-xs break-all">{{ wallet.usedAddresses.join(', ') || 'None' }}</span>
+              <strong>Has Auction Data:</strong> {{ auctionData ? '✅ YES' : '❌ NO' }}
             </div>
             <div>
-              <strong>Can Start:</strong> {{ canStartAuction ? '✅ YES' : '❌ NO' }}
+              <strong>Can Start Auction:</strong>
+              <span :class="canStartAuction ? 'text-success font-bold' : 'text-error font-bold'">
+                {{ canStartAuction ? '✅ YES' : '❌ NO' }}
+              </span>
             </div>
           </div>
-          <div class="text-xs opacity-70 mt-2">
-            Check browser console (F12) for detailed logs
+          <div class="text-xs opacity-70 mt-2 border-t pt-2">
+            💡 <strong>Tip:</strong> Open browser console (F12) for detailed logs on every state change
           </div>
         </div>
       </div>
