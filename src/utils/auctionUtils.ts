@@ -56,80 +56,46 @@ export function parseAuctionBox(
   currentHeight: number,
   ownAddresses: string[]
 ): AuctionData {
-  console.log('🔍 parseAuctionBox - Starting parse...');
-  console.log('🔍 Box:', box);
-
   // Parse registers
-  console.log('🔍 Step 1: Parsing registers...');
   const bidDeadline = parseOr<number>(box.additionalRegisters.R4, 0);
-  console.log('🔍 bidDeadline:', bidDeadline);
-
   const lastBidderPK = box.additionalRegisters.R5 || "";
-  console.log('🔍 lastBidderPK:', lastBidderPK);
-
   const lastBidder = lastBidderPK
     ? ErgoAddress.fromPublicKey(lastBidderPK.substring(4)).encode(getNetworkType())
     : "";
-  console.log('🔍 lastBidder:', lastBidder);
 
   // Parse COMET and ERG amounts - ensure explicit BigInt conversion
   // Box amounts might be string, number, or bigint from different sources
-  console.log('🔍 Step 2: Parsing amounts...');
   const rawCometAmount = box.assets[0]?.amount ?? "0";
   const rawErgAmount = box.value ?? "0";
 
-  console.log('🔍 rawCometAmount:', typeof rawCometAmount, rawCometAmount);
-  console.log('🔍 rawErgAmount:', typeof rawErgAmount, rawErgAmount);
-
-  console.log('🔍 Step 3: Converting to BigInt...');
   const totalCometAmount = typeof rawCometAmount === 'bigint'
     ? rawCometAmount
     : BigInt(String(rawCometAmount));
-  console.log('🔍 totalCometAmount:', typeof totalCometAmount, totalCometAmount);
 
   const totalErgAmount = typeof rawErgAmount === 'bigint'
     ? rawErgAmount
     : BigInt(String(rawErgAmount));
-  console.log('🔍 totalErgAmount:', typeof totalErgAmount, totalErgAmount);
 
   // Ensure constants are BigInt (they're defined as bigint literals in constants.ts)
-  console.log('🔍 Step 4: Converting constants...');
-  console.log('🔍 BASE_COMET_AMOUNT:', typeof BASE_COMET_AMOUNT, BASE_COMET_AMOUNT);
-  console.log('🔍 BASE_ERG_AMOUNT:', typeof BASE_ERG_AMOUNT, BASE_ERG_AMOUNT);
-  console.log('🔍 DEV_FEE_PERCENT:', typeof DEV_FEE_PERCENT, DEV_FEE_PERCENT);
-
   const baseCometBigInt = typeof BASE_COMET_AMOUNT === 'bigint'
     ? BASE_COMET_AMOUNT
     : BigInt(String(BASE_COMET_AMOUNT));
-  console.log('🔍 baseCometBigInt:', typeof baseCometBigInt, baseCometBigInt);
 
   const baseErgBigInt = typeof BASE_ERG_AMOUNT === 'bigint'
     ? BASE_ERG_AMOUNT
     : BigInt(String(BASE_ERG_AMOUNT));
-  console.log('🔍 baseErgBigInt:', typeof baseErgBigInt, baseErgBigInt);
 
   const devFeePercentBigInt = typeof DEV_FEE_PERCENT === 'bigint'
     ? DEV_FEE_PERCENT
     : BigInt(String(DEV_FEE_PERCENT));
-  console.log('🔍 devFeePercentBigInt:', typeof devFeePercentBigInt, devFeePercentBigInt);
 
-  // Now all operations are guaranteed to be BigInt to BigInt
-  console.log('🔍 Step 5: Calculating winnable amounts...');
-  console.log('🔍 About to subtract:', totalCometAmount, '-', baseCometBigInt);
+  // Calculate winnable amounts (total minus base that stays in contract)
   const winnableCometAmount = totalCometAmount - baseCometBigInt;
-  console.log('🔍 winnableCometAmount:', typeof winnableCometAmount, winnableCometAmount);
-
-  console.log('🔍 About to subtract:', totalErgAmount, '-', baseErgBigInt);
   const winnableErgAmount = totalErgAmount - baseErgBigInt;
-  console.log('🔍 winnableErgAmount:', typeof winnableErgAmount, winnableErgAmount);
 
   // Calculate dev fees (5% of winnable pot)
-  console.log('🔍 Step 6: Calculating dev fees...');
   const devCometFee = (winnableCometAmount * devFeePercentBigInt) / 100n;
-  console.log('🔍 devCometFee:', typeof devCometFee, devCometFee);
-
   const devErgFee = (winnableErgAmount * devFeePercentBigInt) / 100n;
-  console.log('🔍 devErgFee:', typeof devErgFee, devErgFee);
 
   // Calculate winner amounts (winnable - dev fee)
   const winnerCometAmount = winnableCometAmount - devCometFee;
@@ -166,7 +132,11 @@ export function parseAuctionBox(
     .plus(ergPot.total.times(ergPriceUSD));
 
   // Determine auction status
-  const blocksRemaining = Math.max(0, bidDeadline - currentHeight);
+  // CRITICAL: bidDeadline might be BigInt from register, currentHeight is number
+  // Convert bidDeadline to number if it's BigInt before arithmetic operations
+  const bidDeadlineNum = typeof bidDeadline === 'bigint' ? Number(bidDeadline) : bidDeadline;
+  const blocksRemaining = Math.max(0, bidDeadlineNum - currentHeight);
+
   const status: AuctionStatus =
     blocksRemaining > 0 ? "active" : lastBidder && ownAddresses.includes(lastBidder) ? "claimable" : "ended";
 
@@ -178,7 +148,7 @@ export function parseAuctionBox(
 
   return {
     box: Object.freeze(box),
-    bidDeadline,
+    bidDeadline: bidDeadlineNum, // Use converted number
     lastBidder,
     cometPot,
     ergPot,

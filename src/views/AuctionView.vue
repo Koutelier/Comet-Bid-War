@@ -60,8 +60,6 @@ async function loadAuctionBox() {
 
     const boxes = await graphQLService.getBoxes(query);
 
-    console.log('📦 Raw boxes from GraphQL:', boxes);
-
     if (isEmpty(boxes)) {
       errorMessage.value = "No active auction found. Please check contract deployment.";
       auctionData.value = null;
@@ -70,24 +68,13 @@ async function loadAuctionBox() {
 
     // Get the first box (there should only be one auction box at a time)
     const rawBox = boxes[0];
-    console.log('📦 First box (raw):', rawBox);
-    console.log('📦 Box value type:', typeof rawBox.value, rawBox.value);
-    console.log('📦 Box assets:', rawBox.assets);
-    if (rawBox.assets && rawBox.assets[0]) {
-      console.log('📦 Asset amount type:', typeof rawBox.assets[0].amount, rawBox.assets[0].amount);
-    }
-    console.log('📦 Box registers:', rawBox.additionalRegisters);
-
     const box = stringifyBoxAmounts(rawBox);
-    console.log('📦 After stringifyBoxAmounts:', box);
-    console.log('📦 Box value after stringify:', typeof box.value, box.value);
 
     // Load token metadata if needed
     const tokenIds = box.assets.map((a) => a.tokenId);
     await chain.loadTokensMetadata(tokenIds);
 
     // Parse auction box
-    console.log('🔍 About to parse auction box...');
     auctionData.value = parseAuctionBox(
       box,
       chain.tokensMetadata,
@@ -95,7 +82,6 @@ async function loadAuctionBox() {
       chain.height,
       wallet.usedAddresses
     );
-    console.log('✅ Auction data parsed successfully:', auctionData.value);
   } catch (error) {
     console.error("❌ Error loading auction box:", error);
     console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
@@ -199,34 +185,12 @@ const isBotWallet = computed(() => {
     ...wallet.usedAddresses
   ].filter(addr => addr); // Remove undefined/empty
 
-  const isBot = addresses.some(addr => addr === BOT_PK);
-
-  // Debug logging
-  console.log('🔍 Bot Detection Debug:', {
-    connected: wallet.connected,
-    changeAddress: wallet.changeAddress,
-    usedAddresses: wallet.usedAddresses,
-    botPK: BOT_PK,
-    isBot,
-    allAddresses: addresses
-  });
-
-  return isBot;
+  return addresses.some(addr => addr === BOT_PK);
 });
 
 // Check if we can start the auction (bot wallet + no auction exists)
 const canStartAuction = computed(() => {
-  const canStart = isBotWallet.value && !auctionData.value && !loading.box && !loading.transaction;
-
-  console.log('🚀 Can Start Auction:', {
-    isBotWallet: isBotWallet.value,
-    hasAuctionData: !!auctionData.value,
-    loadingBox: loading.box,
-    loadingTransaction: loading.transaction,
-    canStart
-  });
-
-  return canStart;
+  return isBotWallet.value && !auctionData.value && !loading.box && !loading.transaction;
 });
 
 async function startAuction() {
