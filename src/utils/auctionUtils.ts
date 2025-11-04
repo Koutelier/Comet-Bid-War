@@ -63,16 +63,33 @@ export function parseAuctionBox(
     ? ErgoAddress.fromPublicKey(lastBidderPK.substring(4)).encode(getNetworkType())
     : "";
 
-  // Parse COMET and ERG amounts - avoid mixing BigInt with other types
-  const totalCometAmount = BigInt(box.assets[0]?.amount || "0");
-  const totalErgAmount = BigInt(box.value || "0");
+  // Parse COMET and ERG amounts - ensure explicit BigInt conversion
+  // Box amounts might be string, number, or bigint from different sources
+  const rawCometAmount = box.assets[0]?.amount ?? "0";
+  const rawErgAmount = box.value ?? "0";
 
-  // Convert constants to BigInt explicitly
-  const baseCometBigInt = BigInt(BASE_COMET_AMOUNT.toString());
-  const baseErgBigInt = BigInt(BASE_ERG_AMOUNT.toString());
-  const devFeePercentBigInt = BigInt(DEV_FEE_PERCENT.toString());
+  const totalCometAmount = typeof rawCometAmount === 'bigint'
+    ? rawCometAmount
+    : BigInt(String(rawCometAmount));
 
-  // Calculate winnable amounts (total - base)
+  const totalErgAmount = typeof rawErgAmount === 'bigint'
+    ? rawErgAmount
+    : BigInt(String(rawErgAmount));
+
+  // Ensure constants are BigInt (they're defined as bigint literals in constants.ts)
+  const baseCometBigInt = typeof BASE_COMET_AMOUNT === 'bigint'
+    ? BASE_COMET_AMOUNT
+    : BigInt(String(BASE_COMET_AMOUNT));
+
+  const baseErgBigInt = typeof BASE_ERG_AMOUNT === 'bigint'
+    ? BASE_ERG_AMOUNT
+    : BigInt(String(BASE_ERG_AMOUNT));
+
+  const devFeePercentBigInt = typeof DEV_FEE_PERCENT === 'bigint'
+    ? DEV_FEE_PERCENT
+    : BigInt(String(DEV_FEE_PERCENT));
+
+  // Now all operations are guaranteed to be BigInt to BigInt
   const winnableCometAmount = totalCometAmount - baseCometBigInt;
   const winnableErgAmount = totalErgAmount - baseErgBigInt;
 
