@@ -147,7 +147,7 @@ export function parseAuctionBox(
   const isUserLastBidder = lastBidder ? ownAddresses.includes(lastBidder) : false;
 
   return {
-    box: Object.freeze(box),
+    box: box, // Don't freeze - Fleet SDK needs mutable box for transactions
     bidDeadline: bidDeadlineNum, // Use converted number
     lastBidder,
     cometPot,

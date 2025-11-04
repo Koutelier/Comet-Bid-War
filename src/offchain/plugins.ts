@@ -360,11 +360,22 @@ export function AuctionBidPlugin(
     // Use the ErgoTree from the input box to ensure we create output with same contract
     const contractErgoTree = (auctionBox as any).ergoTree || COMET_AUCTION_CONTRACT;
 
+    console.log("🔧 AuctionBidPlugin - Building transaction:", {
+      bidType: params.bidType,
+      currentCometAmount: currentCometAmount.toString(),
+      currentErgAmount: currentErgAmount.toString(),
+      hasErgoTree: !!(auctionBox as any).ergoTree,
+      ergoTreeLength: contractErgoTree?.length,
+      ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
+    });
+
     // Create new auction box with updated bid
     const newAuctionBox = new OutputBuilder(
       params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
       contractErgoTree
     );
+
+    console.log("✅ OutputBuilder created successfully");
 
     // Add COMET tokens
     const newCometAmount =

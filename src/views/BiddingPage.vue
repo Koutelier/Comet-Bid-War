@@ -104,13 +104,29 @@ async function placeBid() {
     successMessage.value = `🎉 Bid placed successfully! You're now in the lead!`;
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error: any) {
-    console.error("Error placing bid:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      stack: error?.stack,
-      error: JSON.stringify(error, null, 2)
-    });
-    errorMessage.value = `Failed to place bid: ${error?.message || error}`;
+    console.error("❌ Error placing bid:", error);
+    console.error("Error type:", typeof error);
+    console.error("Error constructor:", error?.constructor?.name);
+
+    // Try to extract all error properties
+    if (error && typeof error === 'object') {
+      const errorProps: any = {};
+      for (const key in error) {
+        try {
+          errorProps[key] = error[key];
+        } catch (e) {
+          errorProps[key] = '<unable to access>';
+        }
+      }
+      console.error("Error properties:", errorProps);
+    }
+
+    console.error("Error.message:", error?.message);
+    console.error("Error.code:", error?.code);
+    console.error("Error.info:", error?.info);
+    console.error("Error.toString():", error?.toString());
+
+    errorMessage.value = `Failed to place bid: ${error?.info || error?.message || String(error)}`;
   } finally {
     loading.transaction = false;
   }
