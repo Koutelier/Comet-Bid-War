@@ -75,7 +75,14 @@ async function loadAuctionBox() {
       boxId: box.boxId,
       value: box.value,
       assets: box.assets,
-      registers: box.additionalRegisters
+      registers: box.additionalRegisters,
+      ergoTree: boxes[0].ergoTree, // ErgoTree from blockchain
+      ergoTreeLength: boxes[0].ergoTree?.length
+    });
+    console.log("🔍 Contract comparison:", {
+      blockchainErgoTree: boxes[0].ergoTree,
+      configuredErgoTree: COMET_AUCTION_CONTRACT,
+      match: boxes[0].ergoTree === COMET_AUCTION_CONTRACT
     });
 
     auctionData.value = parseAuctionBox(
