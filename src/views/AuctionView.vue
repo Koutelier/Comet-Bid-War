@@ -60,6 +60,8 @@ async function loadAuctionBox() {
 
     const boxes = await graphQLService.getBoxes(query);
 
+    console.log('📦 Raw boxes from GraphQL:', boxes);
+
     if (isEmpty(boxes)) {
       errorMessage.value = "No active auction found. Please check contract deployment.";
       auctionData.value = null;
@@ -67,13 +69,25 @@ async function loadAuctionBox() {
     }
 
     // Get the first box (there should only be one auction box at a time)
-    const box = stringifyBoxAmounts(boxes[0]);
+    const rawBox = boxes[0];
+    console.log('📦 First box (raw):', rawBox);
+    console.log('📦 Box value type:', typeof rawBox.value, rawBox.value);
+    console.log('📦 Box assets:', rawBox.assets);
+    if (rawBox.assets && rawBox.assets[0]) {
+      console.log('📦 Asset amount type:', typeof rawBox.assets[0].amount, rawBox.assets[0].amount);
+    }
+    console.log('📦 Box registers:', rawBox.additionalRegisters);
+
+    const box = stringifyBoxAmounts(rawBox);
+    console.log('📦 After stringifyBoxAmounts:', box);
+    console.log('📦 Box value after stringify:', typeof box.value, box.value);
 
     // Load token metadata if needed
     const tokenIds = box.assets.map((a) => a.tokenId);
     await chain.loadTokensMetadata(tokenIds);
 
     // Parse auction box
+    console.log('🔍 About to parse auction box...');
     auctionData.value = parseAuctionBox(
       box,
       chain.tokensMetadata,
@@ -81,8 +95,10 @@ async function loadAuctionBox() {
       chain.height,
       wallet.usedAddresses
     );
+    console.log('✅ Auction data parsed successfully:', auctionData.value);
   } catch (error) {
-    console.error("Error loading auction box:", error);
+    console.error("❌ Error loading auction box:", error);
+    console.error("Error stack:", error instanceof Error ? error.stack : 'No stack');
     errorMessage.value = `Failed to load auction: ${error}`;
   } finally {
     loading.box = false;
