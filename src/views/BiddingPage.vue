@@ -20,7 +20,7 @@ import {
   formatErgAmount,
   AuctionData
 } from "@/utils/auctionUtils";
-import { stringifyBoxAmounts } from "@/utils";
+import { stringifyBoxAmounts, decimalizeBigNumber } from "@/utils";
 
 const chain = useChainStore();
 const wallet = useWalletStore();
@@ -103,8 +103,12 @@ async function placeBid() {
   }
 }
 
-const formattedCometFee = computed(() => formatCometAmount(BigNumber(COMET_ENTRY_FEE.toString())));
-const formattedErgFee = computed(() => formatErgAmount(BigNumber(ERG_ENTRY_FEE.toString())));
+const formattedCometFee = computed(() =>
+  formatCometAmount(decimalizeBigNumber(BigNumber(COMET_ENTRY_FEE.toString()), COMET_DECIMALS))
+);
+const formattedErgFee = computed(() =>
+  formatErgAmount(decimalizeBigNumber(BigNumber(ERG_ENTRY_FEE.toString()), ERG_DECIMALS))
+);
 
 const canBid = computed(() => {
   return (
@@ -118,11 +122,13 @@ const canBid = computed(() => {
 
 <template>
   <div class="bidding-page min-h-screen bg-base-100">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
       <!-- Header -->
-      <div class="text-center mb-8">
-        <h1 class="text-5xl font-bold mb-2">🔥 Degen Bid War</h1>
-        <p class="text-xl opacity-80">Place your bid and win the pot!</p>
+      <div class="text-center mb-12">
+        <h1 class="text-6xl font-extrabold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          🔥 COMET DEGEN BID WAR 🔥
+        </h1>
+        <p class="text-2xl font-semibold opacity-90">Last bidder wins 95% of the pot!</p>
       </div>
 
       <!-- Messages -->
@@ -150,64 +156,72 @@ const canBid = computed(() => {
       </div>
 
       <!-- Active Auction -->
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-8">
         <!-- Prize Pool Display -->
-        <div class="card bg-gradient-to-br from-primary to-secondary text-primary-content shadow-2xl">
-          <div class="card-body">
-            <h2 class="card-title justify-center text-3xl mb-4">💰 Current Prize Pool</h2>
+        <div class="card bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-2xl transform hover:scale-[1.02] transition-transform">
+          <div class="card-body p-8">
+            <h2 class="card-title justify-center text-4xl mb-6 font-extrabold">💰 CURRENT PRIZE POOL 💰</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- COMET Prize -->
-              <div class="stat bg-base-100 text-base-content rounded-lg">
+              <div class="stat bg-base-100 text-base-content rounded-xl shadow-lg p-6 border-2 border-primary">
                 <div class="stat-figure text-primary">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-12 h-12 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
-                <div class="stat-title">COMET Pot</div>
-                <div class="stat-value text-2xl">{{ formatCometAmount(auctionData.cometPot.total) }}</div>
-                <div class="stat-desc">Winner gets: {{ formatCometAmount(auctionData.winnerPrize.comet) }}</div>
+                <div class="stat-title text-lg font-semibold">COMET Pot</div>
+                <div class="stat-value text-3xl text-primary">{{ formatCometAmount(auctionData.cometPot.total) }}</div>
+                <div class="stat-desc text-base font-medium mt-2">Winner gets: {{ formatCometAmount(auctionData.winnerPrize.comet) }}</div>
               </div>
 
               <!-- ERG Prize -->
-              <div class="stat bg-base-100 text-base-content rounded-lg">
+              <div class="stat bg-base-100 text-base-content rounded-xl shadow-lg p-6 border-2 border-secondary">
                 <div class="stat-figure text-secondary">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-8 h-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-12 h-12 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                 </div>
-                <div class="stat-title">ERG Pot</div>
-                <div class="stat-value text-2xl">{{ formatErgAmount(auctionData.ergPot.total) }}</div>
-                <div class="stat-desc">Winner gets: {{ formatErgAmount(auctionData.winnerPrize.erg) }}</div>
+                <div class="stat-title text-lg font-semibold">ERG Pot</div>
+                <div class="stat-value text-3xl text-secondary">{{ formatErgAmount(auctionData.ergPot.total) }}</div>
+                <div class="stat-desc text-base font-medium mt-2">Winner gets: {{ formatErgAmount(auctionData.winnerPrize.erg) }}</div>
               </div>
             </div>
 
             <!-- Total Value USD -->
-            <div v-if="auctionData.totalValueUSD" class="text-center mt-4">
-              <div class="text-sm opacity-70">Total Value</div>
-              <div class="text-4xl font-bold">${{ auctionData.totalValueUSD.toFormat(2) }}</div>
+            <div v-if="auctionData.totalValueUSD" class="text-center mt-8 p-6 bg-base-100/20 rounded-xl">
+              <div class="text-lg font-semibold opacity-80 mb-2">Total Prize Value</div>
+              <div class="text-5xl font-extrabold drop-shadow-lg">${{ auctionData.totalValueUSD.toFormat(2) }}</div>
             </div>
           </div>
         </div>
 
         <!-- Auction Status -->
-        <div class="card bg-base-200 shadow-xl">
-          <div class="card-body">
-            <div class="flex justify-between items-center">
-              <div>
-                <h3 class="text-lg font-semibold">⏱️ Time Remaining</h3>
-                <p class="text-3xl font-bold">{{ auctionData.timeRemaining }}</p>
-                <p class="text-sm opacity-70">{{ auctionData.blocksRemaining }} blocks</p>
+        <div class="card bg-base-200 shadow-2xl border-2 border-accent">
+          <div class="card-body p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div class="text-center md:text-left">
+                <h3 class="text-xl font-bold mb-3 flex items-center justify-center md:justify-start gap-2">
+                  <span class="text-3xl">⏱️</span>
+                  <span>Time Remaining</span>
+                </h3>
+                <p class="text-5xl font-extrabold text-primary mb-2">{{ auctionData.timeRemaining }}</p>
+                <p class="text-lg opacity-70">{{ auctionData.blocksRemaining }} blocks left</p>
               </div>
-              <div class="text-right">
-                <h3 class="text-lg font-semibold">👑 Current Leader</h3>
-                <p class="text-sm font-mono break-all">{{ auctionData.lastBidder.substring(0, 20) }}...</p>
-                <div v-if="auctionData.isUserLastBidder" class="badge badge-success mt-2">You're Winning! 🎉</div>
+              <div class="text-center md:text-right">
+                <h3 class="text-xl font-bold mb-3 flex items-center justify-center md:justify-end gap-2">
+                  <span class="text-3xl">👑</span>
+                  <span>Current Leader</span>
+                </h3>
+                <p class="text-sm font-mono break-all bg-base-300 p-3 rounded-lg">{{ auctionData.lastBidder.substring(0, 30) }}...</p>
+                <div v-if="auctionData.isUserLastBidder" class="badge badge-success badge-lg mt-3 text-lg font-bold">
+                  🎉 YOU'RE WINNING! 🎉
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Bidding Card -->
-        <div class="card bg-base-300 shadow-2xl border-2 border-primary">
-          <div class="card-body">
-            <h2 class="card-title text-2xl mb-4">🎯 Place Your Bid</h2>
+        <div class="card bg-gradient-to-br from-base-300 to-base-200 shadow-2xl border-4 border-primary">
+          <div class="card-body p-8">
+            <h2 class="card-title text-3xl mb-6 justify-center font-extrabold">🎯 PLACE YOUR BID 🎯</h2>
 
             <!-- Wallet Connection -->
             <div v-if="!wallet.connected" class="alert alert-warning">
@@ -215,33 +229,35 @@ const canBid = computed(() => {
               <span>Connect your wallet to place a bid</span>
             </div>
 
-            <div v-else-if="auctionData.status === 'active'" class="space-y-6">
+            <div v-else-if="auctionData.status === 'active'" class="space-y-8">
               <!-- Bid Type Selection -->
               <div class="form-control">
                 <label class="label">
-                  <span class="label-text text-lg font-semibold">Choose Your Bid Type</span>
+                  <span class="label-text text-2xl font-bold mb-2">Choose Your Weapon</span>
                 </label>
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <button
-                    class="btn btn-lg"
-                    :class="selectedBidType === 'comet' ? 'btn-primary' : 'btn-outline'"
+                    class="btn btn-lg h-auto py-6 transform transition-all hover:scale-105"
+                    :class="selectedBidType === 'comet' ? 'btn-primary shadow-xl border-4 border-primary-focus' : 'btn-outline btn-primary'"
                     @click="selectedBidType = 'comet'"
                   >
-                    <div class="text-left">
+                    <div class="flex flex-col items-center gap-2">
+                      <div class="text-4xl">⚡</div>
                       <div class="text-sm opacity-70">Bid with</div>
-                      <div class="text-xl font-bold">COMET</div>
-                      <div class="text-sm">{{ formattedCometFee }}</div>
+                      <div class="text-2xl font-extrabold">COMET</div>
+                      <div class="text-lg font-semibold">{{ formattedCometFee }} tokens</div>
                     </div>
                   </button>
                   <button
-                    class="btn btn-lg"
-                    :class="selectedBidType === 'erg' ? 'btn-secondary' : 'btn-outline'"
+                    class="btn btn-lg h-auto py-6 transform transition-all hover:scale-105"
+                    :class="selectedBidType === 'erg' ? 'btn-secondary shadow-xl border-4 border-secondary-focus' : 'btn-outline btn-secondary'"
                     @click="selectedBidType = 'erg'"
                   >
-                    <div class="text-left">
+                    <div class="flex flex-col items-center gap-2">
+                      <div class="text-4xl">💎</div>
                       <div class="text-sm opacity-70">Bid with</div>
-                      <div class="text-xl font-bold">ERG</div>
-                      <div class="text-sm">{{ formattedErgFee }}</div>
+                      <div class="text-2xl font-extrabold">ERG</div>
+                      <div class="text-lg font-semibold">{{ formattedErgFee }} ERG</div>
                     </div>
                   </button>
                 </div>
@@ -249,17 +265,17 @@ const canBid = computed(() => {
 
               <!-- Bid Button -->
               <button
-                class="btn btn-primary btn-lg w-full text-xl"
-                :class="{ 'btn-disabled': !canBid }"
+                class="btn btn-lg w-full text-2xl h-20 font-extrabold transform transition-all hover:scale-105 shadow-2xl"
+                :class="selectedBidType === 'comet' ? 'btn-primary' : 'btn-secondary'"
                 :disabled="!canBid"
                 @click="placeBid"
               >
                 <span v-if="loading.transaction">
-                  <span class="loading loading-spinner"></span>
+                  <span class="loading loading-spinner loading-lg"></span>
                   Processing...
                 </span>
                 <span v-else>
-                  🚀 Place {{ selectedBidType === 'comet' ? formattedCometFee + ' COMET' : formattedErgFee + ' ERG' }} Bid
+                  🚀 PLACE BID: {{ selectedBidType === 'comet' ? formattedCometFee + ' COMET' : formattedErgFee + ' ERG' }} 🚀
                 </span>
               </button>
 
@@ -285,6 +301,11 @@ const canBid = computed(() => {
 
 <style scoped>
 .bidding-page {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  background: linear-gradient(135deg,
+    rgba(99, 102, 241, 0.15) 0%,
+    rgba(168, 85, 247, 0.15) 50%,
+    rgba(236, 72, 153, 0.15) 100%
+  );
+  background-attachment: fixed;
 }
 </style>

@@ -24,7 +24,7 @@ import {
   formatErgAmount,
   AuctionData
 } from "@/utils/auctionUtils";
-import { stringifyBoxAmounts, getNetworkType } from "@/utils";
+import { stringifyBoxAmounts, getNetworkType, decimalizeBigNumber } from "@/utils";
 
 const chain = useChainStore();
 const wallet = useWalletStore();
@@ -170,8 +170,12 @@ const canClaim = computed(() => {
   );
 });
 
-const formattedCometFee = computed(() => formatCometAmount(BigNumber(COMET_ENTRY_FEE.toString())));
-const formattedErgFee = computed(() => formatErgAmount(BigNumber(ERG_ENTRY_FEE.toString())));
+const formattedCometFee = computed(() =>
+  formatCometAmount(decimalizeBigNumber(BigNumber(COMET_ENTRY_FEE.toString()), COMET_DECIMALS))
+);
+const formattedErgFee = computed(() =>
+  formatErgAmount(decimalizeBigNumber(BigNumber(ERG_ENTRY_FEE.toString()), ERG_DECIMALS))
+);
 
 // Check if the connected wallet is the bot wallet
 const isBotWallet = computed(() => {
