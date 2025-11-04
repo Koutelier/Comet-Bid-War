@@ -88,6 +88,14 @@ async function placeBid() {
     errorMessage.value = "";
     successMessage.value = "";
 
+    console.log("💰 Placing bid:", {
+      bidType: selectedBidType.value,
+      box: auctionData.value.box,
+      boxId: auctionData.value.box.boxId,
+      currentCometAmount: auctionData.value.cometPot.total.toString(),
+      currentErgAmount: auctionData.value.ergPot.total.toString()
+    });
+
     await TransactionFactory.placeBid(
       auctionData.value.box as unknown as Box<Amount>,
       selectedBidType.value
@@ -95,9 +103,14 @@ async function placeBid() {
 
     successMessage.value = `🎉 Bid placed successfully! You're now in the lead!`;
     setTimeout(() => loadAuctionBox(), 3000);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error placing bid:", error);
-    errorMessage.value = `Failed to place bid: ${error}`;
+    console.error("Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      error: JSON.stringify(error, null, 2)
+    });
+    errorMessage.value = `Failed to place bid: ${error?.message || error}`;
   } finally {
     loading.transaction = false;
   }

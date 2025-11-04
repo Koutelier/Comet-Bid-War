@@ -349,7 +349,9 @@ export function AuctionBidPlugin(
     }
 
     const bidDeadline = parse<bigint>(auctionBox.additionalRegisters.R4);
-    const currentCometAmount = auctionBox.assets[0]?.amount || 0n;
+    const currentCometAmount = auctionBox.assets[0]?.amount
+      ? BigInt(auctionBox.assets[0].amount)
+      : 0n;
     const currentErgAmount = BigInt(auctionBox.value);
 
     // Add auction box as input
@@ -392,7 +394,9 @@ export function AuctionManualClaimPlugin(
       throw new Error("Invalid auction box. Last bidder not present.");
     }
 
-    const totalCometAmount = BigInt(auctionBox.assets[0]?.amount || 0n);
+    const totalCometAmount = auctionBox.assets[0]?.amount
+      ? BigInt(auctionBox.assets[0].amount)
+      : 0n;
     const totalErgAmount = BigInt(auctionBox.value);
 
     // Calculate winnable pot (total - base)
@@ -444,7 +448,9 @@ export function AuctionAutoDistributePlugin(
       throw new Error("Invalid auction box. Last bidder not present.");
     }
 
-    const totalCometAmount = BigInt(auctionBox.assets[0]?.amount || 0n);
+    const totalCometAmount = auctionBox.assets[0]?.amount
+      ? BigInt(auctionBox.assets[0].amount)
+      : 0n;
     const totalErgAmount = BigInt(auctionBox.value);
     const lastBidderPK = auctionBox.additionalRegisters.R5;
 

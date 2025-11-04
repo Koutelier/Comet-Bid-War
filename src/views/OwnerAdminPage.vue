@@ -71,6 +71,13 @@ async function loadAuctionBox() {
     const tokenIds = box.assets.map((a) => a.tokenId);
     await chain.loadTokensMetadata(tokenIds);
 
+    console.log("📦 Raw box data:", {
+      boxId: box.boxId,
+      value: box.value,
+      assets: box.assets,
+      registers: box.additionalRegisters
+    });
+
     auctionData.value = parseAuctionBox(
       box,
       chain.tokensMetadata,
@@ -78,6 +85,13 @@ async function loadAuctionBox() {
       chain.height,
       wallet.usedAddresses
     );
+
+    console.log("📊 Parsed auction data:", {
+      cometTotal: auctionData.value.cometPot.total.toString(),
+      ergTotal: auctionData.value.ergPot.total.toString(),
+      cometWinnable: auctionData.value.cometPot.winnable.toString(),
+      ergWinnable: auctionData.value.ergPot.winnable.toString()
+    });
   } catch (error) {
     console.error("Error loading auction:", error);
     errorMessage.value = `Failed to load auction: ${error}`;
@@ -98,9 +112,14 @@ async function claimAllTokens() {
 
     successMessage.value = "✅ Successfully claimed all tokens from auction box!";
     setTimeout(() => loadAuctionBox(), 3000);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error claiming tokens:", error);
-    errorMessage.value = `Failed to claim tokens: ${error}`;
+    console.error("Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      error: JSON.stringify(error, null, 2)
+    });
+    errorMessage.value = `Failed to claim tokens: ${error?.message || error}`;
   } finally {
     loading.transaction = false;
   }
