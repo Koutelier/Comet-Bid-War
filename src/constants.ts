@@ -23,4 +23,4 @@ export const COMET_DECIMALS = 0; // COMET has 0 decimals
 
 // Contract addresses (public keys)
 export const OWNER_PK = "9f1Ljmvb5Lt9735AGLUvRydbaiaREutTkiB6LcFU9JNrydP56wE";
-export const BOT_PK = "9fwuUrvxwYDmUb3ZiTPRruY1qJS23mjdUzyUyuGdbrHmMUMptgB";
+export const BOT_PK = "9fpouCDMTYxU4ZU4CRfgnZaQRf7iV9KCiDPx2Xtxh1z7DqmbqgJ";
