@@ -7,6 +7,7 @@ import {
   OpenOrderParams,
   OpenOrderPlugin,
   RepayPlugin,
+  AuctionGenesisPlugin,
   AuctionBidPlugin,
   AuctionManualClaimPlugin,
   AuctionAutoDistributePlugin,
@@ -118,6 +119,20 @@ export class TransactionFactory {
   // ========================================
   // AUCTION TRANSACTIONS
   // ========================================
+
+  public static async startAuction() {
+    const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
+
+    const unsignedTx = new TransactionBuilder(chain.height)
+      .from(inputs)
+      .extend(AuctionGenesisPlugin(chain.height))
+      .payFee(MIN_FEE)
+      .sendChangeTo(changeAddress)
+      .build()
+      .toEIP12Object();
+
+    return await this._signAndSend(unsignedTx, wallet);
+  }
 
   public static async placeBid(auctionBox: Box<Amount>, bidType: BidType) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();

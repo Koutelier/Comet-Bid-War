@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { GraphQLBoxQuery } from "@fleet-sdk/blockchain-providers";
 import { Amount, Box, isEmpty } from "@fleet-sdk/common";
+import { ErgoAddress } from "@fleet-sdk/core";
 import { computed, reactive, ref, watch } from "vue";
 import BigNumber from "bignumber.js";
 import {
@@ -9,7 +10,8 @@ import {
   COMET_ENTRY_FEE,
   ERG_ENTRY_FEE,
   COMET_DECIMALS,
-  ERG_DECIMALS
+  ERG_DECIMALS,
+  BOT_PK
 } from "@/constants";
 import { COMET_AUCTION_CONTRACT } from "@/offchain/plugins";
 import { TransactionFactory } from "@/offchain/transactionFactory";
@@ -22,7 +24,7 @@ import {
   formatErgAmount,
   AuctionData
 } from "@/utils/auctionUtils";
-import { stringifyBoxAmounts } from "@/utils";
+import { stringifyBoxAmounts, getNetworkType } from "@/utils";
 
 const chain = useChainStore();
 const wallet = useWalletStore();
@@ -168,6 +170,40 @@ const canClaim = computed(() => {
 
 const formattedCometFee = computed(() => formatCometAmount(BigNumber(COMET_ENTRY_FEE.toString())));
 const formattedErgFee = computed(() => formatErgAmount(BigNumber(ERG_ENTRY_FEE.toString())));
+
+// Check if the connected wallet is the bot wallet
+const isBotWallet = computed(() => {
+  if (!wallet.connected || !wallet.changeAddress) {
+    return false;
+  }
+  const botAddress = ErgoAddress.fromBase58(BOT_PK).encode(getNetworkType());
+  return wallet.changeAddress === botAddress;
+});
+
+// Check if we can start the auction (bot wallet + no auction exists)
+const canStartAuction = computed(() => {
+  return isBotWallet.value && !auctionData.value && !loading.box && !loading.transaction;
+});
+
+async function startAuction() {
+  try {
+    loading.transaction = true;
+    errorMessage.value = "";
+    successMessage.value = "";
+
+    await TransactionFactory.startAuction();
+
+    successMessage.value = "Auction started successfully! Let the degen bid war begin! 🚀";
+
+    // Reload auction box after transaction
+    setTimeout(() => loadAuctionBox(), 3000);
+  } catch (error) {
+    console.error("Error starting auction:", error);
+    errorMessage.value = `Failed to start auction: ${error}`;
+  } finally {
+    loading.transaction = false;
+  }
+}
 </script>
 
 <template>
@@ -337,8 +373,79 @@ const formattedErgFee = computed(() => formatErgAmount(BigNumber(ERG_ENTRY_FEE.t
       </div>
 
       <!-- No Auction Found -->
-      <div v-else class="alert alert-warning">
-        <span>No active auction found</span>
+      <div v-else class="max-w-2xl mx-auto">
+        <!-- Bot Wallet Connected - Show Start Button -->
+        <div v-if="isBotWallet" class="card bg-base-200 shadow-xl">
+          <div class="card-body text-center">
+            <h2 class="card-title justify-center text-2xl">🤖 Bot Wallet Detected</h2>
+            <p class="text-lg mb-4">
+              Ready to start the degen bid war? Click below to initialize the first auction!
+            </p>
+
+            <div class="stats stats-vertical lg:stats-horizontal shadow mb-4">
+              <div class="stat">
+                <div class="stat-title">Initial COMET</div>
+                <div class="stat-value text-success">{{ formattedCometFee }}</div>
+                <div class="stat-desc">Base amount</div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-title">Initial ERG</div>
+                <div class="stat-value text-success">0.001</div>
+                <div class="stat-desc">Base amount</div>
+              </div>
+
+              <div class="stat">
+                <div class="stat-title">Auction Duration</div>
+                <div class="stat-value text-primary">360</div>
+                <div class="stat-desc">blocks (~12h)</div>
+              </div>
+            </div>
+
+            <button
+              class="btn btn-primary btn-lg w-full"
+              :disabled="!canStartAuction"
+              @click="startAuction"
+            >
+              {{ loading.transaction ? "Starting Auction..." : "🚀 Start Genesis Auction" }}
+            </button>
+
+            <div class="alert alert-info mt-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span>Make sure you have at least 1 COMET token and 0.002 ERG (for box + tx fee)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Regular User - Waiting for Auction -->
+        <div v-else class="card bg-base-200 shadow-xl">
+          <div class="card-body text-center">
+            <h2 class="card-title justify-center text-2xl">🎯 Auction Not Started</h2>
+            <p class="text-lg mb-4">
+              The COMET auction hasn't been initialized yet. The bot will start it soon!
+            </p>
+
+            <div class="alert alert-warning">
+              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <span>Check back soon or contact the team to start the first auction</span>
+            </div>
+
+            <div class="divider">Get Ready</div>
+
+            <div class="text-left space-y-2">
+              <p>📍 <strong>Entry Fees:</strong></p>
+              <ul class="list-disc list-inside ml-4">
+                <li>COMET Bid: {{ formattedCometFee }} COMET</li>
+                <li>ERG Bid: {{ formattedErgFee }} ERG</li>
+              </ul>
+              <p class="mt-4">🏆 <strong>Winner Takes:</strong></p>
+              <ul class="list-disc list-inside ml-4">
+                <li>95% of the total pot (5% dev fee)</li>
+                <li>Both COMET and ERG prizes</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

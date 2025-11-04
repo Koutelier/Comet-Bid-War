@@ -317,6 +317,24 @@ export type AuctionBidParams = {
   bidder: ErgoAddress;
 };
 
+// Plugin to create the genesis (first) auction box
+export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
+  return ({ addOutputs }) => {
+    // Create the first auction box with base amounts
+    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+      .addTokens({
+        tokenId: COMET_TOKEN_ID,
+        amount: BASE_COMET_AMOUNT
+      })
+      .setAdditionalRegisters({
+        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(), // Initial deadline
+        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex() // Bot as initial "bidder"
+      });
+
+    addOutputs(genesisBox, { index: 0 });
+  };
+}
+
 // Plugin to place a bid on the auction
 export function AuctionBidPlugin(
   auctionBox: Box<Amount>,
