@@ -63,17 +63,22 @@ export function parseAuctionBox(
     ? ErgoAddress.fromPublicKey(lastBidderPK.substring(4)).encode(getNetworkType())
     : "";
 
-  // Parse COMET and ERG amounts
-  const totalCometAmount = BigInt(box.assets[0]?.amount || 0n);
-  const totalErgAmount = BigInt(box.value);
+  // Parse COMET and ERG amounts - avoid mixing BigInt with other types
+  const totalCometAmount = BigInt(box.assets[0]?.amount || "0");
+  const totalErgAmount = BigInt(box.value || "0");
+
+  // Convert constants to BigInt explicitly
+  const baseCometBigInt = BigInt(BASE_COMET_AMOUNT.toString());
+  const baseErgBigInt = BigInt(BASE_ERG_AMOUNT.toString());
+  const devFeePercentBigInt = BigInt(DEV_FEE_PERCENT.toString());
 
   // Calculate winnable amounts (total - base)
-  const winnableCometAmount = totalCometAmount - BASE_COMET_AMOUNT;
-  const winnableErgAmount = totalErgAmount - BASE_ERG_AMOUNT;
+  const winnableCometAmount = totalCometAmount - baseCometBigInt;
+  const winnableErgAmount = totalErgAmount - baseErgBigInt;
 
   // Calculate dev fees (5% of winnable pot)
-  const devCometFee = (winnableCometAmount * DEV_FEE_PERCENT) / 100n;
-  const devErgFee = (winnableErgAmount * DEV_FEE_PERCENT) / 100n;
+  const devCometFee = (winnableCometAmount * devFeePercentBigInt) / 100n;
+  const devErgFee = (winnableErgAmount * devFeePercentBigInt) / 100n;
 
   // Calculate winner amounts (winnable - dev fee)
   const winnerCometAmount = winnableCometAmount - devCometFee;
@@ -83,13 +88,13 @@ export function parseAuctionBox(
   const cometPot = {
     total: decimalizeBigNumber(BigNumber(totalCometAmount.toString()), COMET_DECIMALS),
     winnable: decimalizeBigNumber(BigNumber(winnableCometAmount.toString()), COMET_DECIMALS),
-    base: decimalizeBigNumber(BigNumber(BASE_COMET_AMOUNT.toString()), COMET_DECIMALS)
+    base: decimalizeBigNumber(BigNumber(baseCometBigInt.toString()), COMET_DECIMALS)
   };
 
   const ergPot = {
     total: decimalizeBigNumber(BigNumber(totalErgAmount.toString()), ERG_DECIMALS),
     winnable: decimalizeBigNumber(BigNumber(winnableErgAmount.toString()), ERG_DECIMALS),
-    base: decimalizeBigNumber(BigNumber(BASE_ERG_AMOUNT.toString()), ERG_DECIMALS)
+    base: decimalizeBigNumber(BigNumber(baseErgBigInt.toString()), ERG_DECIMALS)
   };
 
   const devFee = {
