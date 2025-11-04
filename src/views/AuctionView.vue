@@ -173,16 +173,44 @@ const formattedErgFee = computed(() => formatErgAmount(BigNumber(ERG_ENTRY_FEE.t
 
 // Check if the connected wallet is the bot wallet
 const isBotWallet = computed(() => {
-  if (!wallet.connected || !wallet.changeAddress) {
+  if (!wallet.connected) {
     return false;
   }
-  const botAddress = ErgoAddress.fromBase58(BOT_PK).encode(getNetworkType());
-  return wallet.changeAddress === botAddress;
+
+  // Check if changeAddress or any usedAddress matches BOT_PK
+  const addresses = [
+    wallet.changeAddress,
+    ...wallet.usedAddresses
+  ].filter(addr => addr); // Remove undefined/empty
+
+  const isBot = addresses.some(addr => addr === BOT_PK);
+
+  // Debug logging
+  console.log('🔍 Bot Detection Debug:', {
+    connected: wallet.connected,
+    changeAddress: wallet.changeAddress,
+    usedAddresses: wallet.usedAddresses,
+    botPK: BOT_PK,
+    isBot,
+    allAddresses: addresses
+  });
+
+  return isBot;
 });
 
 // Check if we can start the auction (bot wallet + no auction exists)
 const canStartAuction = computed(() => {
-  return isBotWallet.value && !auctionData.value && !loading.box && !loading.transaction;
+  const canStart = isBotWallet.value && !auctionData.value && !loading.box && !loading.transaction;
+
+  console.log('🚀 Can Start Auction:', {
+    isBotWallet: isBotWallet.value,
+    hasAuctionData: !!auctionData.value,
+    loadingBox: loading.box,
+    loadingTransaction: loading.transaction,
+    canStart
+  });
+
+  return canStart;
 });
 
 async function startAuction() {
@@ -210,6 +238,39 @@ async function startAuction() {
   <div class="auction-view">
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-4xl font-bold mb-8 text-center">COMET Auction</h1>
+
+      <!-- Debug Panel (only shown when wallet connected) -->
+      <div v-if="wallet.connected && !auctionData" class="card bg-base-300 shadow-xl mb-4 border-2 border-warning">
+        <div class="card-body">
+          <h3 class="card-title text-sm">🔧 Debug Info</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
+            <div>
+              <strong>Connected:</strong> {{ wallet.connected ? '✅' : '❌' }}
+            </div>
+            <div>
+              <strong>Change Address:</strong><br/>
+              <span class="text-xs break-all">{{ wallet.changeAddress || 'N/A' }}</span>
+            </div>
+            <div>
+              <strong>Bot PK:</strong><br/>
+              <span class="text-xs break-all">{{ BOT_PK }}</span>
+            </div>
+            <div>
+              <strong>Is Bot Wallet:</strong> {{ isBotWallet ? '✅ YES' : '❌ NO' }}
+            </div>
+            <div>
+              <strong>Used Addresses:</strong><br/>
+              <span class="text-xs break-all">{{ wallet.usedAddresses.join(', ') || 'None' }}</span>
+            </div>
+            <div>
+              <strong>Can Start:</strong> {{ canStartAuction ? '✅ YES' : '❌ NO' }}
+            </div>
+          </div>
+          <div class="text-xs opacity-70 mt-2">
+            Check browser console (F12) for detailed logs
+          </div>
+        </div>
+      </div>
 
       <!-- Error Message -->
       <div v-if="errorMessage" class="alert alert-error mb-4">
