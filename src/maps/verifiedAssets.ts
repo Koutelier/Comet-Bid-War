@@ -1,10 +1,14 @@
-import { ERG_DECIMALS, ERG_TOKEN_ID } from "@/constants";
+import { ERG_DECIMALS, ERG_TOKEN_ID, COMET_TOKEN_ID, COMET_DECIMALS } from "@/constants";
 import { VerifiedAsset } from "@/types";
 
 export const VERIFIED_ASSETS: VerifiedAsset[] = [
   {
     tokenId: ERG_TOKEN_ID,
     metadata: { name: "ERG", decimals: ERG_DECIMALS }
+  },
+  {
+    tokenId: COMET_TOKEN_ID,
+    metadata: { name: "COMET", decimals: COMET_DECIMALS }
   },
   {
     tokenId: "7a51950e5f548549ec1aa63ffdc38279505b11e7e803d01bcf8347e0123c88b0",

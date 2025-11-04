@@ -10,7 +10,18 @@ import {
 } from "@fleet-sdk/core";
 import { blake2b256, hex } from "@fleet-sdk/crypto";
 import { parse, SByte, SColl, SGroupElement, SInt, SLong, SSigmaProp } from "@fleet-sdk/serializer";
-import { ERG_TOKEN_ID } from "@/constants";
+import {
+  ERG_TOKEN_ID,
+  COMET_TOKEN_ID,
+  COMET_ENTRY_FEE,
+  ERG_ENTRY_FEE,
+  BID_DURATION,
+  BASE_COMET_AMOUNT,
+  BASE_ERG_AMOUNT,
+  DEV_FEE_PERCENT,
+  OWNER_PK,
+  BOT_PK
+} from "@/constants";
 
 export type OpenOrderType = "on-close" | "fixed-height";
 
@@ -286,5 +297,202 @@ export function RepayPlugin(bondBox: Box<Amount>): FleetPlugin {
 
     addInputs(bondBox);
     addOutputs([repayment, returnCollateral], { index: 0 });
+  };
+}
+
+// ========================================
+// COMET AUCTION CONTRACT V2
+// ========================================
+
+// TODO: Replace with compiled ErgoTree bytecode
+// Compile the ErgoScript contract using Ergo Playground (https://wallet.plutomonkey.com/p2s/)
+// or AppKit to get the ErgoTree hex string
+export const COMET_AUCTION_CONTRACT =
+  "PLACEHOLDER_COMPILED_ERGOTREE_HEX_NEEDS_TO_BE_ADDED_HERE";
+
+export type BidType = "comet" | "erg";
+
+export type AuctionBidParams = {
+  bidType: BidType;
+  bidder: ErgoAddress;
+};
+
+// Plugin to place a bid on the auction
+export function AuctionBidPlugin(
+  auctionBox: Box<Amount>,
+  params: AuctionBidParams
+): FleetPlugin {
+  return ({ addInputs, addOutputs }) => {
+    if (!auctionBox.additionalRegisters.R4) {
+      throw new Error("Invalid auction box. Bid deadline not present.");
+    }
+    if (!auctionBox.additionalRegisters.R5) {
+      throw new Error("Invalid auction box. Last bidder not present.");
+    }
+
+    const bidDeadline = parse<bigint>(auctionBox.additionalRegisters.R4);
+    const currentCometAmount = auctionBox.assets[0]?.amount || 0n;
+    const currentErgAmount = BigInt(auctionBox.value);
+
+    // Add auction box as input
+    addInputs(auctionBox);
+
+    // Create new auction box with updated bid
+    const newAuctionBox = new OutputBuilder(
+      params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
+      COMET_AUCTION_CONTRACT
+    );
+
+    // Add COMET tokens
+    const newCometAmount =
+      params.bidType === "comet"
+        ? BigInt(currentCometAmount) + COMET_ENTRY_FEE
+        : BigInt(currentCometAmount);
+
+    newAuctionBox.addTokens({
+      tokenId: COMET_TOKEN_ID,
+      amount: newCometAmount
+    });
+
+    // Set registers: R4 = bidDeadline, R5 = new bidder PK
+    newAuctionBox.setAdditionalRegisters({
+      R4: SLong(bidDeadline).toHex(),
+      R5: SSigmaProp(SGroupElement(first(params.bidder.getPublicKeys()))).toHex()
+    });
+
+    addOutputs(newAuctionBox, { index: 0 });
+  };
+}
+
+// Plugin for manual claim by winner
+export function AuctionManualClaimPlugin(
+  auctionBox: Box<Amount>,
+  winner: ErgoAddress
+): FleetPlugin {
+  return ({ addInputs, addOutputs }) => {
+    if (!auctionBox.additionalRegisters.R5) {
+      throw new Error("Invalid auction box. Last bidder not present.");
+    }
+
+    const totalCometAmount = BigInt(auctionBox.assets[0]?.amount || 0n);
+    const totalErgAmount = BigInt(auctionBox.value);
+
+    // Calculate winnable pot (total - base)
+    const winnableCometAmount = totalCometAmount - BASE_COMET_AMOUNT;
+    const winnableErgAmount = totalErgAmount - BASE_ERG_AMOUNT;
+
+    // Calculate dev fees
+    const devCometFee = (winnableCometAmount * DEV_FEE_PERCENT) / 100n;
+    const devErgFee = (winnableErgAmount * DEV_FEE_PERCENT) / 100n;
+
+    // Calculate winner amounts
+    const winnerCometAmount = winnableCometAmount - devCometFee;
+    const winnerErgAmount = winnableErgAmount - devErgFee;
+
+    addInputs(auctionBox);
+
+    // Output 0: Dev fee box
+    const devBox = new OutputBuilder(
+      devErgFee > SAFE_MIN_BOX_VALUE ? devErgFee : SAFE_MIN_BOX_VALUE,
+      ErgoAddress.fromBase58(OWNER_PK)
+    );
+    if (devCometFee > 0n) {
+      devBox.addTokens({
+        tokenId: COMET_TOKEN_ID,
+        amount: devCometFee
+      });
+    }
+
+    // Output 1: Winner box (includes base amounts)
+    const winnerBox = new OutputBuilder(
+      winnerErgAmount + BASE_ERG_AMOUNT,
+      winner
+    ).addTokens({
+      tokenId: COMET_TOKEN_ID,
+      amount: winnerCometAmount + BASE_COMET_AMOUNT
+    });
+
+    addOutputs([devBox, winnerBox], { index: 0 });
+  };
+}
+
+// Plugin for bot auto-distribution
+export function AuctionAutoDistributePlugin(
+  auctionBox: Box<Amount>,
+  currentHeight: number
+): FleetPlugin {
+  return ({ addInputs, addOutputs }) => {
+    if (!auctionBox.additionalRegisters.R5) {
+      throw new Error("Invalid auction box. Last bidder not present.");
+    }
+
+    const totalCometAmount = BigInt(auctionBox.assets[0]?.amount || 0n);
+    const totalErgAmount = BigInt(auctionBox.value);
+    const lastBidderPK = auctionBox.additionalRegisters.R5;
+
+    // Calculate winnable pot (total - base)
+    const winnableCometAmount = totalCometAmount - BASE_COMET_AMOUNT;
+    const winnableErgAmount = totalErgAmount - BASE_ERG_AMOUNT;
+
+    // Calculate dev fees
+    const devCometFee = (winnableCometAmount * DEV_FEE_PERCENT) / 100n;
+    const devErgFee = (winnableErgAmount * DEV_FEE_PERCENT) / 100n;
+
+    // Calculate winner amounts
+    const winnerCometAmount = winnableCometAmount - devCometFee;
+    const winnerErgAmount = winnableErgAmount - devErgFee;
+
+    addInputs(auctionBox);
+
+    // Output 0: New auction box (reset to base amounts)
+    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+      .addTokens({
+        tokenId: COMET_TOKEN_ID,
+        amount: BASE_COMET_AMOUNT
+      })
+      .setAdditionalRegisters({
+        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(),
+        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex()
+      });
+
+    // Output 1: Winner box
+    const winnerAddress = ErgoAddress.fromPublicKey(lastBidderPK.substring(4));
+    const winnerBox = new OutputBuilder(
+      winnerErgAmount > SAFE_MIN_BOX_VALUE ? winnerErgAmount : SAFE_MIN_BOX_VALUE,
+      winnerAddress
+    );
+    if (winnerCometAmount > 0n) {
+      winnerBox.addTokens({
+        tokenId: COMET_TOKEN_ID,
+        amount: winnerCometAmount
+      });
+    }
+
+    // Output 2: Dev fee box
+    const devBox = new OutputBuilder(
+      devErgFee > SAFE_MIN_BOX_VALUE ? devErgFee : SAFE_MIN_BOX_VALUE,
+      ErgoAddress.fromBase58(OWNER_PK)
+    );
+    if (devCometFee > 0n) {
+      devBox.addTokens({
+        tokenId: COMET_TOKEN_ID,
+        amount: devCometFee
+      });
+    }
+
+    addOutputs([newAuctionBox, winnerBox, devBox], { index: 0 });
+  };
+}
+
+// Plugin for owner to claim invalid funds
+export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
+  return ({ addInputs, addOutputs }) => {
+    addInputs(auctionBox);
+
+    const ownerBox = new OutputBuilder(auctionBox.value, ErgoAddress.fromBase58(OWNER_PK)).addTokens(
+      auctionBox.assets
+    );
+
+    addOutputs(ownerBox, { index: 0 });
   };
 }

@@ -10,7 +10,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { AssetPriceRates, assetPricingService } from "../services/assetPricingService";
 import { ERG_DECIMALS, ERG_TOKEN_ID } from "@/constants";
 import { VERIFIED_ASSETS } from "@/maps/verifiedAssets";
-import { buildBondContract, buildOrderContract } from "@/offchain/plugins";
+import { buildBondContract, buildOrderContract, COMET_AUCTION_CONTRACT } from "@/offchain/plugins";
 import { graphQLService } from "@/services/graphqlService";
 import { AssetMetadata, AssetType } from "@/types";
 import { decimalizeBigNumber, getNetworkType, toDict } from "@/utils";
@@ -19,7 +19,8 @@ export type StateTokenMetadata = { [tokenId: string]: AssetMetadata };
 
 const CONTRACT_ADDRESSES = [
   ...VERIFIED_ASSETS.map((a) => buildOrderContract(a.tokenId, "on-close")),
-  ...VERIFIED_ASSETS.map((a) => buildBondContract(a.tokenId))
+  ...VERIFIED_ASSETS.map((a) => buildBondContract(a.tokenId)),
+  COMET_AUCTION_CONTRACT // Add auction contract
 ].map((contract) => ErgoAddress.fromErgoTree(contract).encode(getNetworkType()));
 
 export const useChainStore = defineStore("chain", () => {
@@ -158,3 +159,8 @@ export const useChainStore = defineStore("chain", () => {
     tvl
   };
 });
+
+// Export auction contract address for use in components
+export function getAuctionContractAddress(): string {
+  return ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT).encode(getNetworkType());
+}

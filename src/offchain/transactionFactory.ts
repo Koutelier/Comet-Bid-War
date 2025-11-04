@@ -6,7 +6,12 @@ import {
   LiquidatePlugin,
   OpenOrderParams,
   OpenOrderPlugin,
-  RepayPlugin
+  RepayPlugin,
+  AuctionBidPlugin,
+  AuctionManualClaimPlugin,
+  AuctionAutoDistributePlugin,
+  AuctionOwnerClaimPlugin,
+  BidType
 } from "./plugins";
 import { MIN_FEE } from "@/constants";
 import { useChainStore, useWalletStore } from "@/stories";
@@ -108,5 +113,70 @@ export class TransactionFactory {
     const signedTx = await wallet.signTx(unsignedTx);
 
     return await wallet.submitTx(signedTx);
+  }
+
+  // ========================================
+  // AUCTION TRANSACTIONS
+  // ========================================
+
+  public static async placeBid(auctionBox: Box<Amount>, bidType: BidType) {
+    const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
+
+    const unsignedTx = new TransactionBuilder(chain.height)
+      .from(inputs)
+      .extend(
+        AuctionBidPlugin(auctionBox, {
+          bidType,
+          bidder: changeAddress
+        })
+      )
+      .payFee(MIN_FEE)
+      .sendChangeTo(changeAddress)
+      .build()
+      .toEIP12Object();
+
+    return await this._signAndSend(unsignedTx, wallet);
+  }
+
+  public static async claimAuction(auctionBox: Box<Amount>) {
+    const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
+
+    const unsignedTx = new TransactionBuilder(chain.height)
+      .from(inputs)
+      .extend(AuctionManualClaimPlugin(auctionBox, changeAddress))
+      .payFee(MIN_FEE)
+      .sendChangeTo(changeAddress)
+      .build()
+      .toEIP12Object();
+
+    return await this._signAndSend(unsignedTx, wallet);
+  }
+
+  public static async autoDistributeAuction(auctionBox: Box<Amount>) {
+    const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
+
+    const unsignedTx = new TransactionBuilder(chain.height)
+      .from(inputs)
+      .extend(AuctionAutoDistributePlugin(auctionBox, chain.height))
+      .payFee(MIN_FEE)
+      .sendChangeTo(changeAddress)
+      .build()
+      .toEIP12Object();
+
+    return await this._signAndSend(unsignedTx, wallet);
+  }
+
+  public static async ownerClaimAuction(auctionBox: Box<Amount>) {
+    const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
+
+    const unsignedTx = new TransactionBuilder(chain.height)
+      .from(inputs)
+      .extend(AuctionOwnerClaimPlugin(auctionBox))
+      .payFee(MIN_FEE)
+      .sendChangeTo(changeAddress)
+      .build()
+      .toEIP12Object();
+
+    return await this._signAndSend(unsignedTx, wallet);
   }
 }
