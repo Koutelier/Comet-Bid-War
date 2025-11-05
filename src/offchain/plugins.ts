@@ -321,7 +321,9 @@ export type AuctionBidParams = {
 export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
   return ({ addOutputs }) => {
     // Create the first auction box with base amounts
-    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+    // Convert ErgoTree to ErgoAddress for proper wallet handling
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
+    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
       .addTokens({
         tokenId: COMET_TOKEN_ID,
         amount: BASE_COMET_AMOUNT
@@ -369,10 +371,13 @@ export function AuctionBidPlugin(
       ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
     });
 
+    // Convert ErgoTree to ErgoAddress for proper wallet handling
+    const contractAddress = ErgoAddress.fromErgoTree(contractErgoTree);
+
     // Create new auction box with updated bid
     const newAuctionBox = new OutputBuilder(
       params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
-      contractErgoTree
+      contractAddress
     );
 
     console.log("✅ OutputBuilder created successfully");
@@ -497,8 +502,11 @@ export function AuctionAutoDistributePlugin(
       ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
     });
 
+    // Convert ErgoTree to ErgoAddress for proper wallet handling
+    const contractAddress = ErgoAddress.fromErgoTree(contractErgoTree);
+
     // Output 0: New auction box (reset to base amounts)
-    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractErgoTree)
+    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
       .addTokens({
         tokenId: COMET_TOKEN_ID,
         amount: BASE_COMET_AMOUNT
