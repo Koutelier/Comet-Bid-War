@@ -42,6 +42,9 @@ const ergBalance = computed(() => {
             </router-link>
           </li>
           <li>
+            <router-link to="/winners" active-class="active-item">🏆 Winners</router-link>
+          </li>
+          <li>
             <router-link to="/auction" active-class="active-item">Full View</router-link>
           </li>
           <li v-if="wallet.connected">
