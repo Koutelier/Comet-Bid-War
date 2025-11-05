@@ -412,6 +412,16 @@ export function AuctionBidPlugin(
     // Parse current state
     const bidDeadline = parse<bigint>(auctionBox.additionalRegisters.R4);
     const bidCount = parse<bigint>(auctionBox.additionalRegisters.R6);
+
+    // V3: Debug logging for register values
+    console.log("📊 AuctionBidPlugin - Current State:");
+    console.log("  R6 (bid count) raw:", auctionBox.additionalRegisters.R6);
+    console.log("  R6 parsed value:", bidCount);
+    console.log("  R7 (last bid height) raw:", auctionBox.additionalRegisters.R7);
+    console.log("  currentHeight param:", currentHeight);
+    console.log("  New R6 will be:", bidCount + 1n);
+    console.log("  New R7 will be:", BigInt(currentHeight));
+
     const currentCometAmount = auctionBox.assets[0]?.amount
       ? BigInt(auctionBox.assets[0].amount)
       : 0n;
@@ -448,11 +458,18 @@ export function AuctionBidPlugin(
     );
 
     // Set all registers including V3 additions
+    const newR6 = SLong(bidCount + 1n).toHex();
+    const newR7 = SLong(BigInt(currentHeight)).toHex();
+
+    console.log("📝 Setting new registers:");
+    console.log("  New R6 encoded:", newR6);
+    console.log("  New R7 encoded:", newR7);
+
     newAuctionBox.setAdditionalRegisters({
       R4: SLong(bidDeadline).toHex(), // Keep same deadline
       R5: SSigmaProp(SGroupElement(first(params.bidder.getPublicKeys()))).toHex(), // New bidder
-      R6: SLong(bidCount + 1n).toHex(), // V3: Increment bid count
-      R7: SLong(BigInt(currentHeight)).toHex(), // V3: Update to current height
+      R6: newR6, // V3: Increment bid count
+      R7: newR7, // V3: Update to current height
       R8: SLong(0n).toHex() // V3: Keep claimed flag = 0
     });
 

@@ -178,6 +178,12 @@ export class TransactionFactory {
       throw new Error('Maximum bids (1000) reached for this round');
     }
 
+    console.log("🔧 TransactionFactory.placeBid:");
+    console.log("  chain.height:", chain.height);
+    console.log("  cleanBox R6:", cleanBox.additionalRegisters?.R6);
+    console.log("  cleanBox R7:", cleanBox.additionalRegisters?.R7);
+    console.log("  parsed bidCount:", bidCount);
+
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
       .extend(
