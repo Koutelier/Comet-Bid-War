@@ -442,7 +442,16 @@ export function AuctionBidPlugin(
         : currentErgAmount;
 
     // Create new auction box with updated bid
-    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT, getNetworkType());
+    const networkType = getNetworkType();
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT, networkType);
+
+    console.log("🏗️ Creating bid output:");
+    console.log("  Network type:", networkType);
+    console.log("  Input box ErgoTree (first 100 chars):", auctionBox.ergoTree.substring(0, 100));
+    console.log("  Contract constant (first 100 chars):", COMET_AUCTION_CONTRACT.substring(0, 100));
+    console.log("  Contract address:", contractAddress.encode(networkType));
+    console.log("  Match?", auctionBox.ergoTree === COMET_AUCTION_CONTRACT);
+
     const newAuctionBox = new OutputBuilder(
       newErgAmount,
       contractAddress

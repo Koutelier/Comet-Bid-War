@@ -197,6 +197,16 @@ export class TransactionFactory {
       .build()
       .toEIP12Object();
 
+    console.log("📦 Built transaction:");
+    console.log("  Outputs count:", unsignedTx.outputs.length);
+    if (unsignedTx.outputs.length > 0) {
+      console.log("  Output[0] (auction box):");
+      console.log("    ErgoTree (first 100 chars):", unsignedTx.outputs[0].ergoTree.substring(0, 100));
+      console.log("    Value:", unsignedTx.outputs[0].value);
+      console.log("    Assets:", unsignedTx.outputs[0].assets);
+      console.log("    Registers:", unsignedTx.outputs[0].additionalRegisters);
+    }
+
     return await this._signAndSend(unsignedTx, wallet);
   }
 
