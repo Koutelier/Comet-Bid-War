@@ -133,3 +133,23 @@ export function stringifyBoxAmounts(box: Box): Box<string> {
     }))
   };
 }
+
+/**
+ * Cleans a box object to make it serializable for wallet transactions
+ * Removes Vue reactivity proxies and non-serializable properties
+ */
+export function cleanBoxForTransaction(box: any): any {
+  return {
+    boxId: box.boxId,
+    transactionId: box.transactionId,
+    index: box.index,
+    ergoTree: box.ergoTree,
+    creationHeight: box.creationHeight,
+    value: typeof box.value === 'string' ? box.value : box.value.toString(),
+    assets: (box.assets || []).map((asset: any) => ({
+      tokenId: asset.tokenId,
+      amount: typeof asset.amount === 'string' ? asset.amount : asset.amount.toString()
+    })),
+    additionalRegisters: { ...box.additionalRegisters }
+  };
+}

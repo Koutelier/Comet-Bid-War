@@ -16,6 +16,7 @@ import {
 } from "./plugins";
 import { MIN_FEE } from "@/constants";
 import { useChainStore, useWalletStore } from "@/stories";
+import { cleanBoxForTransaction } from "@/utils/otherUtils";
 
 export const OPEN_ORDER_UI_FEE = 10000000n;
 const IMPLEMENTOR_ADDRESS = ErgoAddress.fromBase58(
@@ -137,10 +138,13 @@ export class TransactionFactory {
   public static async placeBid(auctionBox: Box<Amount>, bidType: BidType) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
 
+    // Clean box to make it serializable for wallet
+    const cleanBox = cleanBoxForTransaction(auctionBox) as unknown as Box<Amount>;
+
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
       .extend(
-        AuctionBidPlugin(auctionBox, {
+        AuctionBidPlugin(cleanBox, {
           bidType,
           bidder: changeAddress
         })
@@ -156,9 +160,12 @@ export class TransactionFactory {
   public static async claimAuction(auctionBox: Box<Amount>) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
 
+    // Clean box to make it serializable for wallet
+    const cleanBox = cleanBoxForTransaction(auctionBox) as unknown as Box<Amount>;
+
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
-      .extend(AuctionManualClaimPlugin(auctionBox, changeAddress))
+      .extend(AuctionManualClaimPlugin(cleanBox, changeAddress))
       .payFee(MIN_FEE)
       .sendChangeTo(changeAddress)
       .build()
@@ -170,9 +177,12 @@ export class TransactionFactory {
   public static async autoDistributeAuction(auctionBox: Box<Amount>) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
 
+    // Clean box to make it serializable for wallet
+    const cleanBox = cleanBoxForTransaction(auctionBox) as unknown as Box<Amount>;
+
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
-      .extend(AuctionAutoDistributePlugin(auctionBox, chain.height))
+      .extend(AuctionAutoDistributePlugin(cleanBox, chain.height))
       .payFee(MIN_FEE)
       .sendChangeTo(changeAddress)
       .build()
@@ -184,9 +194,12 @@ export class TransactionFactory {
   public static async ownerClaimAuction(auctionBox: Box<Amount>) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
 
+    // Clean box to make it serializable for wallet
+    const cleanBox = cleanBoxForTransaction(auctionBox) as unknown as Box<Amount>;
+
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
-      .extend(AuctionOwnerClaimPlugin(auctionBox))
+      .extend(AuctionOwnerClaimPlugin(cleanBox))
       .payFee(MIN_FEE)
       .sendChangeTo(changeAddress)
       .build()
