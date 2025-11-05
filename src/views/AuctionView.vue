@@ -11,7 +11,8 @@ import {
   ERG_ENTRY_FEE,
   COMET_DECIMALS,
   ERG_DECIMALS,
-  BOT_PK
+  BOT_PK,
+  MIN_FEE
 } from "@/constants";
 import { COMET_AUCTION_CONTRACT } from "@/offchain/plugins";
 import { TransactionFactory } from "@/offchain/transactionFactory";
@@ -96,23 +97,63 @@ async function placeBid() {
     return;
   }
 
+  // Check wallet balance before attempting bid
+  if (!wallet.connected) {
+    errorMessage.value = "Please connect your wallet first";
+    return;
+  }
+
+  // Validate sufficient balance
+  const requiredAmount = selectedBidType.value === "comet" ? COMET_ENTRY_FEE : ERG_ENTRY_FEE;
+
+  // Get wallet balance from wallet store (array of AssetInfo)
+  const balance = wallet.balance;
+
+  if (selectedBidType.value === "comet") {
+    // Find COMET token in balance
+    const cometAsset = balance.find((a) => a.tokenId === COMET_TOKEN_ID);
+    const cometAmount = cometAsset ? cometAsset.amount : 0n;
+
+    if (cometAmount < requiredAmount) {
+      const formatted = formatCometAmount(decimalizeBigNumber(BigNumber(requiredAmount.toString()), COMET_DECIMALS));
+      errorMessage.value = `Insufficient COMET balance. You need ${formatted} COMET to bid.`;
+      return;
+    }
+  } else {
+    // Find ERG in balance (tokenId is "ERG")
+    const ergAsset = balance.find((a) => a.tokenId === ERG_TOKEN_ID);
+    const ergAmount = ergAsset ? ergAsset.amount : 0n;
+    const totalRequired = requiredAmount + MIN_FEE; // Include transaction fee
+
+    if (ergAmount < totalRequired) {
+      const formatted = formatErgAmount(decimalizeBigNumber(BigNumber(totalRequired.toString()), ERG_DECIMALS));
+      errorMessage.value = `Insufficient ERG balance. You need at least ${formatted} ERG (including transaction fee).`;
+      return;
+    }
+  }
+
   try {
     loading.transaction = true;
     errorMessage.value = "";
     successMessage.value = "";
+
+    console.log(`🎯 Placing ${selectedBidType.value.toUpperCase()} bid...`);
 
     await TransactionFactory.placeBid(
       auctionData.value.box as unknown as Box<Amount>,
       selectedBidType.value
     );
 
-    successMessage.value = `Successfully placed ${selectedBidType.value.toUpperCase()} bid!`;
+    successMessage.value = `🎉 Successfully placed ${selectedBidType.value.toUpperCase()} bid! You're now in the lead!`;
 
     // Reload auction box after transaction
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error) {
-    console.error("Error placing bid:", error);
-    errorMessage.value = `Failed to place bid: ${error}`;
+    console.error("❌ Error placing bid:", error);
+
+    // Extract readable error message
+    const errorMsg = (error as any)?.info || (error as any)?.message || String(error);
+    errorMessage.value = `Failed to place bid: ${errorMsg}`;
   } finally {
     loading.transaction = false;
   }
@@ -128,15 +169,18 @@ async function claimWinnings() {
     errorMessage.value = "";
     successMessage.value = "";
 
+    console.log("🎁 Claiming winnings...");
+
     await TransactionFactory.claimAuction(auctionData.value.box as unknown as Box<Amount>);
 
-    successMessage.value = "Successfully claimed your winnings!";
+    successMessage.value = "🎉 Successfully claimed your winnings! Congratulations!";
 
     // Reload auction box after transaction
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error) {
-    console.error("Error claiming winnings:", error);
-    errorMessage.value = `Failed to claim winnings: ${error}`;
+    console.error("❌ Error claiming winnings:", error);
+    const errorMsg = (error as any)?.info || (error as any)?.message || String(error);
+    errorMessage.value = `Failed to claim winnings: ${errorMsg}`;
   } finally {
     loading.transaction = false;
   }
@@ -203,15 +247,18 @@ async function startAuction() {
     errorMessage.value = "";
     successMessage.value = "";
 
+    console.log("🚀 Starting auction...");
+
     await TransactionFactory.startAuction();
 
-    successMessage.value = "Auction started successfully! Let the degen bid war begin! 🚀";
+    successMessage.value = "🚀 Auction started successfully! Let the degen bid war begin!";
 
     // Reload auction box after transaction
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error) {
-    console.error("Error starting auction:", error);
-    errorMessage.value = `Failed to start auction: ${error}`;
+    console.error("❌ Error starting auction:", error);
+    const errorMsg = (error as any)?.info || (error as any)?.message || String(error);
+    errorMessage.value = `Failed to start auction: ${errorMsg}`;
   } finally {
     loading.transaction = false;
   }
@@ -235,6 +282,8 @@ async function autoDistribute() {
     errorMessage.value = "";
     successMessage.value = "";
 
+    console.log("🤖 Auto-distributing auction...");
+
     await TransactionFactory.autoDistributeAuction(
       auctionData.value.box as unknown as Box<Amount>
     );
@@ -244,29 +293,10 @@ async function autoDistribute() {
     // Reload auction box after transaction
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error: any) {
-    console.error("Error auto-distributing:", error);
-    console.error("Error type:", typeof error);
-    console.error("Error.message:", error?.message);
-    console.error("Error.code:", error?.code);
-    console.error("Error.info:", error?.info);
-    console.error("Error stack:", error?.stack);
+    console.error("❌ Error auto-distributing:", error);
 
-    // Try to extract all error properties
-    if (error && typeof error === 'object') {
-      const errorProps: any = {};
-      for (const key in error) {
-        try {
-          if (typeof error[key] !== 'function') {
-            errorProps[key] = error[key];
-          }
-        } catch (e) {
-          errorProps[key] = '<unable to access>';
-        }
-      }
-      console.error("All error properties:", errorProps);
-    }
-
-    errorMessage.value = `Failed to auto-distribute: ${error?.info || error?.message || String(error)}`;
+    const errorMsg = error?.info || error?.message || String(error);
+    errorMessage.value = `Failed to auto-distribute: ${errorMsg}`;
   } finally {
     loading.transaction = false;
   }
@@ -277,56 +307,6 @@ async function autoDistribute() {
   <div class="auction-view">
     <div class="container mx-auto px-4 py-8">
       <h1 class="text-4xl font-bold mb-8 text-center">COMET Auction</h1>
-
-      <!-- Debug Panel (ALWAYS shown when wallet connected - persistent) -->
-      <div v-if="wallet.connected" class="card bg-base-300 shadow-xl mb-4 border-2 border-warning">
-        <div class="card-body">
-          <h3 class="card-title text-sm">🔧 Debug Info (Bot Detection)</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
-            <div>
-              <strong>Connected:</strong> {{ wallet.connected ? '✅' : '❌' }}
-            </div>
-            <div>
-              <strong>Loading Box:</strong> {{ loading.box ? '⏳' : '✅' }}
-            </div>
-            <div class="md:col-span-2">
-              <strong>Change Address:</strong><br/>
-              <span class="text-xs break-all bg-base-100 p-1 rounded">{{ wallet.changeAddress || 'N/A' }}</span>
-            </div>
-            <div class="md:col-span-2">
-              <strong>Expected Bot PK:</strong><br/>
-              <span class="text-xs break-all bg-base-100 p-1 rounded">{{ BOT_PK }}</span>
-            </div>
-            <div>
-              <strong>Addresses Match:</strong> {{ wallet.changeAddress === BOT_PK ? '✅ YES' : '❌ NO' }}
-            </div>
-            <div>
-              <strong>Is Bot Wallet:</strong>
-              <span :class="isBotWallet ? 'text-success font-bold' : 'text-error font-bold'">
-                {{ isBotWallet ? '✅ YES' : '❌ NO' }}
-              </span>
-            </div>
-            <div class="md:col-span-2">
-              <strong>All Used Addresses ({{ wallet.usedAddresses.length }}):</strong><br/>
-              <div class="text-xs break-all bg-base-100 p-1 rounded max-h-20 overflow-y-auto">
-                {{ wallet.usedAddresses.length > 0 ? wallet.usedAddresses.join('\n') : 'None loaded yet' }}
-              </div>
-            </div>
-            <div>
-              <strong>Has Auction Data:</strong> {{ auctionData ? '✅ YES' : '❌ NO' }}
-            </div>
-            <div>
-              <strong>Can Start Auction:</strong>
-              <span :class="canStartAuction ? 'text-success font-bold' : 'text-error font-bold'">
-                {{ canStartAuction ? '✅ YES' : '❌ NO' }}
-              </span>
-            </div>
-          </div>
-          <div class="text-xs opacity-70 mt-2 border-t pt-2">
-            💡 <strong>Tip:</strong> Open browser console (F12) for detailed logs on every state change
-          </div>
-        </div>
-      </div>
 
       <!-- Bot Auto-Distribute Panel -->
       <div v-if="canAutoDistribute" class="card bg-gradient-to-r from-success to-info text-white shadow-2xl mb-4 border-4 border-success animate-pulse">

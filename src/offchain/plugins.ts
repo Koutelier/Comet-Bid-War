@@ -363,21 +363,12 @@ export function AuctionBidPlugin(
     // Add auction box as input
     addInputs(auctionBox);
 
-    // Use the COMET_AUCTION_CONTRACT ErgoTree directly
-    // Don't convert to address - pass ErgoTree string to OutputBuilder
-    console.log("🔧 AuctionBidPlugin - Building transaction:", {
-      bidType: params.bidType,
-      currentCometAmount: currentCometAmount.toString(),
-      currentErgAmount: currentErgAmount.toString()
-    });
-
     // Create new auction box with updated bid
+    // Use the COMET_AUCTION_CONTRACT ErgoTree directly
     const newAuctionBox = new OutputBuilder(
       params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
       COMET_AUCTION_CONTRACT // Use ErgoTree directly, not address
     );
-
-    console.log("✅ OutputBuilder created successfully");
 
     // Add COMET tokens
     const newCometAmount =
@@ -472,12 +463,6 @@ export function AuctionAutoDistributePlugin(
   currentHeight: number
 ): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
-    console.log("🔧 AuctionAutoDistributePlugin - Starting:", {
-      boxId: auctionBox.boxId,
-      currentHeight,
-      hasErgoTree: !!(auctionBox as any).ergoTree
-    });
-
     if (!auctionBox.additionalRegisters.R5) {
       throw new Error("Invalid auction box. Last bidder not present.");
     }
@@ -501,8 +486,6 @@ export function AuctionAutoDistributePlugin(
     const winnerErgAmount = winnableErgAmount - devErgFee;
 
     addInputs(auctionBox);
-
-    console.log("✅ AuctionAutoDistributePlugin - Using COMET_AUCTION_CONTRACT");
 
     // Output 0: New auction box (reset to base amounts)
     // Use ErgoTree directly, not address
@@ -554,25 +537,12 @@ export function AuctionAutoDistributePlugin(
     }
 
     addOutputs([newAuctionBox, winnerBox, devBox], { index: 0 });
-
-    console.log("✅ AuctionAutoDistributePlugin - Complete");
   };
 }
 
 // Plugin for owner to claim invalid funds
 export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
-    console.log("🔧 AuctionOwnerClaimPlugin - Starting:", {
-      boxId: auctionBox.boxId,
-      value: auctionBox.value.toString(),
-      assetsCount: auctionBox.assets.length,
-      hasErgoTree: !!(auctionBox as any).ergoTree,
-      assets: auctionBox.assets.map(a => ({
-        tokenId: a.tokenId,
-        amount: a.amount.toString()
-      }))
-    });
-
     addInputs(auctionBox);
 
     // Clean assets array to ensure they're plain objects and wrap in TokensCollection
@@ -585,10 +555,6 @@ export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
       new TokensCollection(cleanAssets)
     );
 
-    console.log("✅ AuctionOwnerClaimPlugin - OutputBuilder created");
-
     addOutputs(ownerBox, { index: 0 });
-
-    console.log("✅ AuctionOwnerClaimPlugin - Complete");
   };
 }
