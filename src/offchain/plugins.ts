@@ -322,9 +322,8 @@ export type AuctionBidParams = {
 export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
   return ({ addOutputs }) => {
     // Create the first auction box with base amounts
-    // Convert ErgoTree to ErgoAddress for proper wallet handling
-    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
-    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
+    // Use ErgoTree directly
+    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
       .addTokens(
         new TokensCollection([
           {
@@ -364,21 +363,18 @@ export function AuctionBidPlugin(
     // Add auction box as input
     addInputs(auctionBox);
 
-    // Always use the COMET_AUCTION_CONTRACT constant to avoid serialization issues
-    // The ErgoTree from the blockchain may have different serialization that causes NonConsumedBytes errors
-    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
-
+    // Use the COMET_AUCTION_CONTRACT ErgoTree directly
+    // Don't convert to address - pass ErgoTree string to OutputBuilder
     console.log("🔧 AuctionBidPlugin - Building transaction:", {
       bidType: params.bidType,
       currentCometAmount: currentCometAmount.toString(),
-      currentErgAmount: currentErgAmount.toString(),
-      usingConstantContract: true
+      currentErgAmount: currentErgAmount.toString()
     });
 
     // Create new auction box with updated bid
     const newAuctionBox = new OutputBuilder(
       params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
-      contractAddress
+      COMET_AUCTION_CONTRACT // Use ErgoTree directly, not address
     );
 
     console.log("✅ OutputBuilder created successfully");
@@ -506,14 +502,11 @@ export function AuctionAutoDistributePlugin(
 
     addInputs(auctionBox);
 
-    // Always use the COMET_AUCTION_CONTRACT constant to avoid serialization issues
-    // The ErgoTree from the blockchain may have different serialization that causes NonConsumedBytes errors
-    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
-
-    console.log("✅ AuctionAutoDistributePlugin - Using constant contract");
+    console.log("✅ AuctionAutoDistributePlugin - Using COMET_AUCTION_CONTRACT");
 
     // Output 0: New auction box (reset to base amounts)
-    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
+    // Use ErgoTree directly, not address
+    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
       .addTokens(
         new TokensCollection([
           {

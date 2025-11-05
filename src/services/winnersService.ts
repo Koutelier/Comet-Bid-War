@@ -36,12 +36,20 @@ export type LeaderboardEntry = {
  * Fetch all historical auction winners from the blockchain
  */
 export async function fetchHistoricalWinners(): Promise<WinnerRecord[]> {
+  console.log("🔍 Fetching historical winners from blockchain...");
+
+  // TODO: The GraphQL API doesn't support querying transactions by "spent" argument
+  // We need to implement an alternative approach using the Ergo Explorer API
+  // For now, return empty array to avoid errors
+  console.log("⚠️ Transaction history query not yet implemented - GraphQL API limitation");
+
+  return [];
+
+  /* DISABLED UNTIL WE FIND CORRECT API
   const winners: WinnerRecord[] = [];
   let offset = 0;
   const limit = 100;
   let roundNumber = 0;
-
-  console.log("🔍 Fetching historical winners from blockchain...");
 
   try {
     // Fetch transactions in batches
@@ -90,6 +98,7 @@ export async function fetchHistoricalWinners(): Promise<WinnerRecord[]> {
     console.error("❌ Error fetching historical winners:", error);
     throw error;
   }
+  */
 }
 
 /**
