@@ -12,15 +12,46 @@ import { getNetworkType } from "@/utils/otherUtils";
 const BALANCE_QUERY = `query balances($addresses: [String!]!) { addresses(addresses: $addresses) { balance { nanoErgs assets { tokenId amount decimals } } } }`;
 const HEIGHT_QUERY = `query height { blockHeaders(take: 1) { height } }`;
 const TOKEN_METADATA_QUERY = `query tokens($tokenIds: [String!]!) { tokens(tokenIds: $tokenIds) { tokenId name decimals box { additionalRegisters } } }`;
+const TRANSACTIONS_QUERY = `query transactions($spent: [String!]!, $offset: Int!, $limit: Int!) {
+  transactions(spent: $spent, offset: $offset, limit: $limit) {
+    transactionId
+    inclusionHeight
+    timestamp
+    inputs { boxId ergoTree value assets { tokenId amount } }
+    outputs { boxId ergoTree value assets { tokenId amount } address additionalRegisters }
+  }
+}`;
 
 type BalanceResponse = { addresses: { balance: AddressBalance }[] };
 type HeightResponse = { blockHeaders: Header[] };
 type TokenResponse = { tokens: Token[] };
+type Transaction = {
+  transactionId: string;
+  inclusionHeight: number;
+  timestamp: number;
+  inputs: Array<{
+    boxId: string;
+    ergoTree: string;
+    value: string;
+    assets: Array<{ tokenId: string; amount: string }>;
+  }>;
+  outputs: Array<{
+    boxId: string;
+    ergoTree: string;
+    value: string;
+    assets: Array<{ tokenId: string; amount: string }>;
+    address: string;
+    additionalRegisters: Record<string, string>;
+  }>;
+};
+type TransactionsResponse = { transactions: Transaction[] };
+type TransactionsArgs = { spent: string[]; offset: number; limit: number };
 
 class GraphQLService extends ErgoGraphQLProvider {
   #getBalance;
   #getHeight;
   #getTokenMetadata;
+  #getTransactions;
 
   constructor() {
     super(
@@ -32,6 +63,7 @@ class GraphQLService extends ErgoGraphQLProvider {
     this.#getBalance = this.createOperation<BalanceResponse, BalanceArgs>(BALANCE_QUERY);
     this.#getHeight = this.createOperation<HeightResponse>(HEIGHT_QUERY);
     this.#getTokenMetadata = this.createOperation<TokenResponse, TokenArgs>(TOKEN_METADATA_QUERY);
+    this.#getTransactions = this.createOperation<TransactionsResponse, TransactionsArgs>(TRANSACTIONS_QUERY);
   }
 
   public async getCurrentHeight(): Promise<number | undefined> {
@@ -61,6 +93,12 @@ class GraphQLService extends ErgoGraphQLProvider {
       }
     }
   }
+
+  public async getTransactions(ergoTrees: string[], offset: number = 0, limit: number = 50): Promise<Transaction[]> {
+    const response = await this.#getTransactions({ spent: ergoTrees, offset, limit });
+    return response.data?.transactions || [];
+  }
 }
 
 export const graphQLService = new GraphQLService();
+export type { Transaction };
