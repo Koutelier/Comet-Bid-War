@@ -216,6 +216,40 @@ async function startAuction() {
     loading.transaction = false;
   }
 }
+
+// Check if bot can auto-distribute (auction ended)
+const canAutoDistribute = computed(() => {
+  return (
+    isBotWallet.value &&
+    auctionData.value &&
+    auctionData.value.status === "ended" &&
+    !loading.transaction
+  );
+});
+
+async function autoDistribute() {
+  if (!auctionData.value) return;
+
+  try {
+    loading.transaction = true;
+    errorMessage.value = "";
+    successMessage.value = "";
+
+    await TransactionFactory.autoDistributeAuction(
+      auctionData.value.box as unknown as Box<Amount>
+    );
+
+    successMessage.value = "🎉 Auction distributed! Winner paid & new round started! 🚀";
+
+    // Reload auction box after transaction
+    setTimeout(() => loadAuctionBox(), 3000);
+  } catch (error) {
+    console.error("Error auto-distributing:", error);
+    errorMessage.value = `Failed to auto-distribute: ${error}`;
+  } finally {
+    loading.transaction = false;
+  }
+}
 </script>
 
 <template>
@@ -270,6 +304,23 @@ async function startAuction() {
           <div class="text-xs opacity-70 mt-2 border-t pt-2">
             💡 <strong>Tip:</strong> Open browser console (F12) for detailed logs on every state change
           </div>
+        </div>
+      </div>
+
+      <!-- Bot Auto-Distribute Panel -->
+      <div v-if="canAutoDistribute" class="card bg-gradient-to-r from-success to-info text-white shadow-2xl mb-4 border-4 border-success animate-pulse">
+        <div class="card-body">
+          <h3 class="card-title text-2xl">🤖 Bot Action Required</h3>
+          <p class="text-lg">
+            Auction has ended! Click below to distribute winnings to the winner and start a new round.
+          </p>
+          <button
+            class="btn btn-success btn-lg w-full"
+            :disabled="loading.transaction"
+            @click="autoDistribute"
+          >
+            {{ loading.transaction ? "Processing..." : "🎉 Distribute & Start New Round" }}
+          </button>
         </div>
       </div>
 
