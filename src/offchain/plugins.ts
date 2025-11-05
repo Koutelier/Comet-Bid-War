@@ -21,7 +21,11 @@ import {
   BASE_ERG_AMOUNT,
   DEV_FEE_PERCENT,
   OWNER_PK,
-  BOT_PK
+  BOT_PK,
+  GRACE_PERIOD,
+  MAX_BIDS_PER_ROUND,
+  MIN_PAYMENT_THRESHOLD,
+  MIN_BID_INCREMENT_PERCENT
 } from "@/constants";
 
 export type OpenOrderType = "on-close" | "fixed-height";
@@ -302,14 +306,41 @@ export function RepayPlugin(bondBox: Box<Amount>): FleetPlugin {
 }
 
 // ========================================
-// COMET AUCTION CONTRACT V2
+// COMET AUCTION CONTRACT V3
 // ========================================
 
-// ✅ Compiled ErgoTree from deployed contract
-// P2S Address: 2EdGwJPamHZmuNpQEkQ5va8zH3DXh6ivncb4WRypRfB6331WokoThsSzR...
-// This is the actual deployed auction contract on the blockchain
+// ⚠️ TODO: Replace with complete V3 ErgoTree from compilation
+// V3 Contract adds 3 new registers:
+// - R6: Bid count (0-1000 max)
+// - R7: Last bid height
+// - R8: Winner claimed flag (0 or 1)
+//
+// New features:
+// - 10% minimum bid increment (dynamic)
+// - Grace period (30 blocks after deadline)
+// - Max bids per round (1000)
+// - Winner claimed flag tracking
 export const COMET_AUCTION_CONTRACT =
-  "1a8c062504000580897a04000e200cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b04000e260102bc1ba5450a92b8d1d1a70dfd084c1de8e131cb55f19336020afe392f87b4f1f0b823ce840502050a05c8010580897a050a05c8010e2601024036695c156473f0fb0cc1712eecc995dfc4e545dc7baaa852d97c93820f52419fc047fd0402040205c09a0c0580a8d6b907040604020404050205d0050400040004000400040404020400040005020580897a040205c09a0c05000580a8d6b9070500d81dd6017ea305d602e4c6a70405d603b1a5d604b2a5730000d605c27204d606937205c2a7d607c17204d6089272077301d609db63087204d60ab27209730200d60b7303d60c938c720a01720bd60de4c672040405d60ee4c672040508d60f8c720a02d610db6308a7d611b27210730400d6128c721102d613c1a7d614d19272017202d615cdee7305d616e4c6a70508d6179972127306d6189d9c721773077308d6199972177218d61a9972137309d61b9d9c721a730a730bd61c99721a721bd61dcdee730ceb02eb02eb02d1ededed8f72017202ededededed937203730d7206720893b17209730e720c93720d7202aeb5a4d9011e6394c5721ec5a7d9011e6393c2721ed0720eeced93720f9a7212730f9372077213ed93720f72129372079a72137310ea02ea0272147215d1ed9372037311d802d61eb2a5731200d61fb2a5731300ededededededed72067208720c93720f731493720d9a7201731593720e7215ededed93c2721ed07216938cb2db6308721e73160001720b928cb2db6308721e73170002721992c1721e721cededed93c2721fd0721d938cb2db6308721f73180001720b928cb2db6308721f73190002721892c1721f721bea02ea0272147216d1ed937203731ad801d61eb2a5731b00edededed937205d0721d720c92720f7218927207721bededed93c2721ed07216938cb2db6308721e731c0001720b928cb2db6308721e731d00029a7219731e92c1721e9a721c731fea02d1ececec91b172107320948c721101720b949e721773217322949e721a73237324721d";
+  "1ade052404000580897a04000e200cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b" +
+  "04000e260102bc1ba5450a92b8d1d1a70dfd084c1de8e131cb55f19336020afe392f87b4f1f0b823ce8405" +
+  "02050a05c8010580897a050a05c8010e2601024036695c156473f0fb0cc1712eecc995dfc4e545dc7baaa8" +
+  "52d97c93820f52419fc047fd0402040205c09a0c0580a8d6b907040604020404050205d0050400040004000" +
+  "400040404020400040005020580897a040205c09a0c05000580a8d6b9070500d81dd6017ea305d602e4c6a7" +
+  "0405d603b1a5d604b2a5730000d605c27204d606937205c2a7d607c17204d6089272077301d609db630872" +
+  "04d60ab27209730200d60b7303d60c938c720a01720bd60de4c672040405d60ee4c672040508d60f8c720a" +
+  "02d610db6308a7d611b27210730400d6128c721102d613c1a7d614d19272017202d615cdee7305d616e4c6" +
+  "a70508d6179972127306d6189d9c721773077308d6199972177218d61a9972137309d61b9d9c721a730a73" +
+  "0bd61c99721a721bd61dcdee730ceb02eb02eb02d1ededed8f72017202ededededed937203730d7206720" +
+  "893b17209730e720c93720d7202aeb5a4d9011e6394c5721ec5a7d9011e6393c2721ed0720eeced93720f" +
+  "9a7212730f9372077213ed93720f72129372079a72137310ea02ea0272147215d1ed9372037311d802d61" +
+  "eb2a5731200d61fb2a5731300ededededededed72067208720c93720f731493720d9a7201731593720e72" +
+  "15ededed93c2721ed07216938cb2db6308721e73160001720b928cb2db6308721e73170002721992c1721" +
+  "e721cededed93c2721fd0721d938cb2db6308721f73180001720b928cb2db6308721f73190002721892c1" +
+  "721f721bea02ea0272147216d1ed937203731ad801d61eb2a5731b00edededed937205d0721d720c92720" +
+  "f7218927207721bededed93c2721ed07216938cb2db6308721e731c0001720b928cb2db6308721e731d00" +
+  "029a7219731e92c1721e9a721c731fea02d1ececec91b172107320948c721101720b949e721773217322" +
+  "949e721a73237324721d";
+  // ⚠️ NOTE: This is a PLACEHOLDER - you MUST provide the complete V3 ErgoTree!
 
 export type BidType = "comet" | "erg";
 
@@ -319,6 +350,7 @@ export type AuctionBidParams = {
 };
 
 // Plugin to create the genesis (first) auction box
+// V3: Initializes R6 (bid count), R7 (start height), R8 (claimed flag)
 export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
   return ({ addOutputs }) => {
     // Create the first auction box with base amounts
@@ -333,8 +365,11 @@ export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
         ])
       )
       .setAdditionalRegisters({
-        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(), // Initial deadline
-        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex() // Bot as initial "bidder"
+        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(), // Bid deadline
+        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex(), // Bot as initial "bidder"
+        R6: SLong(0n).toHex(), // V3: Bid count = 0
+        R7: SLong(BigInt(currentHeight)).toHex(), // V3: Start height
+        R8: SLong(0n).toHex() // V3: Winner claimed flag = 0
       });
 
     addOutputs(genesisBox, { index: 0 });
@@ -342,19 +377,35 @@ export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
 }
 
 // Plugin to place a bid on the auction
+// V3: Increments R6 (bid count), updates R7 (current height), keeps R8 = 0
+// Note: The actual bid amount should be validated by TransactionFactory before calling this
 export function AuctionBidPlugin(
   auctionBox: Box<Amount>,
-  params: AuctionBidParams
+  params: AuctionBidParams,
+  currentHeight: number,
+  bidAmount: bigint  // Actual bid amount (already validated for 10% minimum)
 ): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
+    // Validate required registers
     if (!auctionBox.additionalRegisters.R4) {
       throw new Error("Invalid auction box. Bid deadline not present.");
     }
     if (!auctionBox.additionalRegisters.R5) {
       throw new Error("Invalid auction box. Last bidder not present.");
     }
+    if (!auctionBox.additionalRegisters.R6) {
+      throw new Error("Invalid auction box. Bid count not present (V3 required).");
+    }
+    if (!auctionBox.additionalRegisters.R7) {
+      throw new Error("Invalid auction box. Last bid height not present (V3 required).");
+    }
+    if (!auctionBox.additionalRegisters.R8) {
+      throw new Error("Invalid auction box. Winner claimed flag not present (V3 required).");
+    }
 
+    // Parse current state
     const bidDeadline = parse<bigint>(auctionBox.additionalRegisters.R4);
+    const bidCount = parse<bigint>(auctionBox.additionalRegisters.R6);
     const currentCometAmount = auctionBox.assets[0]?.amount
       ? BigInt(auctionBox.assets[0].amount)
       : 0n;
@@ -363,18 +414,22 @@ export function AuctionBidPlugin(
     // Add auction box as input
     addInputs(auctionBox);
 
-    // Create new auction box with updated bid
-    // Use the COMET_AUCTION_CONTRACT ErgoTree directly
-    const newAuctionBox = new OutputBuilder(
-      params.bidType === "erg" ? currentErgAmount + ERG_ENTRY_FEE : currentErgAmount,
-      COMET_AUCTION_CONTRACT // Use ErgoTree directly, not address
-    );
-
-    // Add COMET tokens
+    // Calculate new amounts
     const newCometAmount =
       params.bidType === "comet"
-        ? BigInt(currentCometAmount) + COMET_ENTRY_FEE
-        : BigInt(currentCometAmount);
+        ? currentCometAmount + bidAmount
+        : currentCometAmount;
+
+    const newErgAmount =
+      params.bidType === "erg"
+        ? currentErgAmount + bidAmount
+        : currentErgAmount;
+
+    // Create new auction box with updated bid
+    const newAuctionBox = new OutputBuilder(
+      newErgAmount,
+      COMET_AUCTION_CONTRACT
+    );
 
     newAuctionBox.addTokens(
       new TokensCollection([
@@ -385,10 +440,13 @@ export function AuctionBidPlugin(
       ])
     );
 
-    // Set registers: R4 = bidDeadline, R5 = new bidder PK
+    // Set all registers including V3 additions
     newAuctionBox.setAdditionalRegisters({
-      R4: SLong(bidDeadline).toHex(),
-      R5: SSigmaProp(SGroupElement(first(params.bidder.getPublicKeys()))).toHex()
+      R4: SLong(bidDeadline).toHex(), // Keep same deadline
+      R5: SSigmaProp(SGroupElement(first(params.bidder.getPublicKeys()))).toHex(), // New bidder
+      R6: SLong(bidCount + 1n).toHex(), // V3: Increment bid count
+      R7: SLong(BigInt(currentHeight)).toHex(), // V3: Update to current height
+      R8: SLong(0n).toHex() // V3: Keep claimed flag = 0
     });
 
     addOutputs(newAuctionBox, { index: 0 });
@@ -458,37 +516,65 @@ export function AuctionManualClaimPlugin(
 }
 
 // Plugin for bot auto-distribution
+// V3: Checks grace period, resets all registers (R4-R8) for new round
 export function AuctionAutoDistributePlugin(
   auctionBox: Box<Amount>,
   currentHeight: number
 ): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
-    if (!auctionBox.additionalRegisters.R5) {
-      throw new Error("Invalid auction box. Last bidder not present.");
+    // Validate all registers present
+    if (!auctionBox.additionalRegisters.R4) throw new Error("Missing R4 (deadline)");
+    if (!auctionBox.additionalRegisters.R5) throw new Error("Missing R5 (bidder)");
+    if (!auctionBox.additionalRegisters.R6) throw new Error("Missing R6 (bid count) - V3 required");
+    if (!auctionBox.additionalRegisters.R7) throw new Error("Missing R7 (last bid height) - V3 required");
+    if (!auctionBox.additionalRegisters.R8) throw new Error("Missing R8 (claimed flag) - V3 required");
+
+    // Parse registers
+    const deadline = parse<bigint>(auctionBox.additionalRegisters.R4);
+    const lastBidderPK = auctionBox.additionalRegisters.R5;
+    const winnerClaimedFlag = parse<bigint>(auctionBox.additionalRegisters.R8);
+
+    // V3: Check grace period (deadline + 30 blocks)
+    const graceDeadline = Number(deadline) + Number(GRACE_PERIOD);
+    if (currentHeight < graceDeadline) {
+      const blocksRemaining = graceDeadline - currentHeight;
+      throw new Error(`Grace period not over. Wait ${blocksRemaining} more blocks (~${blocksRemaining * 0.5} minutes)`);
+    }
+
+    // V3: Check not already claimed
+    if (winnerClaimedFlag !== 0n) {
+      throw new Error("Winner already claimed. Cannot auto-distribute.");
     }
 
     const totalCometAmount = auctionBox.assets[0]?.amount
       ? BigInt(auctionBox.assets[0].amount)
       : 0n;
     const totalErgAmount = BigInt(auctionBox.value);
-    const lastBidderPK = auctionBox.additionalRegisters.R5;
 
     // Calculate winnable pot (total - base)
     const winnableCometAmount = totalCometAmount - BASE_COMET_AMOUNT;
     const winnableErgAmount = totalErgAmount - BASE_ERG_AMOUNT;
 
-    // Calculate dev fees
-    const devCometFee = (winnableCometAmount * DEV_FEE_PERCENT) / 100n;
-    const devErgFee = (winnableErgAmount * DEV_FEE_PERCENT) / 100n;
+    // V3: SAFE fee calculation (divide first to prevent overflow)
+    const devCometFee = (winnableCometAmount / 100n) * DEV_FEE_PERCENT;
+    const devErgFee = (winnableErgAmount / 100n) * DEV_FEE_PERCENT;
 
-    // Calculate winner amounts
+    // Calculate winner amounts (NO base - goes to new auction)
     const winnerCometAmount = winnableCometAmount - devCometFee;
     const winnerErgAmount = winnableErgAmount - devErgFee;
 
+    // V3: Validate minimum thresholds
+    if (devErgFee < MIN_PAYMENT_THRESHOLD) {
+      throw new Error("Dev fee below minimum threshold");
+    }
+    if (winnerErgAmount < MIN_PAYMENT_THRESHOLD) {
+      throw new Error("Winner amount below minimum threshold");
+    }
+
     addInputs(auctionBox);
 
-    // Output 0: New auction box (reset to base amounts)
-    // Use ErgoTree directly, not address
+    // Output 0: New auction box (MUST BE FIRST, reset to base amounts)
+    // V3: Initialize ALL registers for new round
     const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
       .addTokens(
         new TokensCollection([
@@ -499,8 +585,11 @@ export function AuctionAutoDistributePlugin(
         ])
       )
       .setAdditionalRegisters({
-        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(),
-        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex()
+        R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(), // New deadline
+        R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex(), // Bot as initial "bidder"
+        R6: SLong(0n).toHex(), // V3: Reset bid count to 0
+        R7: SLong(BigInt(currentHeight)).toHex(), // V3: New start height
+        R8: SLong(0n).toHex() // V3: Reset claimed flag to 0
       });
 
     // Output 1: Winner box

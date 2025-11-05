@@ -1,5 +1,6 @@
 import { EIP12UnsignedTransaction } from "@fleet-sdk/common";
 import { Amount, Box, ErgoAddress, OutputBuilder, TransactionBuilder } from "@fleet-sdk/core";
+import { parse } from "@fleet-sdk/serializer";
 import {
   CancelOrderPlugin,
   CloseOrderPlugin,
@@ -135,11 +136,47 @@ export class TransactionFactory {
     return await this._signAndSend(unsignedTx, wallet);
   }
 
-  public static async placeBid(auctionBox: Box<Amount>, bidType: BidType) {
+  public static async placeBid(auctionBox: Box<Amount>, bidType: BidType, bidAmount?: bigint) {
     const { chain, changeAddress, inputs, wallet } = await this._getTxContext();
 
     // Clean box to make it serializable for wallet
     const cleanBox = cleanBoxForTransaction(auctionBox) as unknown as Box<Amount>;
+
+    // V3: Calculate 10% minimum bid increment
+    const totalCometAmount = BigInt(cleanBox.assets[0]?.amount || 0);
+    const totalErgAmount = BigInt(cleanBox.value);
+    const winnableCometAmount = totalCometAmount - 1n; // Minus base
+    const winnableErgAmount = totalErgAmount - 1000000n; // Minus base ERG
+
+    // Calculate minimum increment (10% of winnable pot, or minimum entry fee, whichever is higher)
+    const minCometIncrement = winnableCometAmount > 0n
+      ? ((winnableCometAmount * 10n) / 100n > 100000n
+        ? (winnableCometAmount * 10n) / 100n
+        : 100000n)
+      : 100000n;
+
+    const minErgIncrement = winnableErgAmount > 0n
+      ? ((winnableErgAmount * 10n) / 100n > 1000000000n
+        ? (winnableErgAmount * 10n) / 100n
+        : 1000000000n)
+      : 1000000000n;
+
+    // Use provided bidAmount or minimum increment
+    const actualBidAmount = bidAmount || (bidType === "comet" ? minCometIncrement : minErgIncrement);
+
+    // V3: Validate bid amount meets minimum
+    if (bidType === "comet" && actualBidAmount < minCometIncrement) {
+      throw new Error(`Minimum COMET bid: ${Number(minCometIncrement) / 1000000} COMET (10% of winnable pot)`);
+    }
+    if (bidType === "erg" && actualBidAmount < minErgIncrement) {
+      throw new Error(`Minimum ERG bid: ${Number(minErgIncrement) / 1000000000} ERG (10% of winnable pot)`);
+    }
+
+    // V3: Check max bids
+    const bidCount = BigInt(cleanBox.additionalRegisters?.R6 ? parse<bigint>(cleanBox.additionalRegisters.R6) : 0);
+    if (bidCount >= 1000n) {
+      throw new Error('Maximum bids (1000) reached for this round');
+    }
 
     const unsignedTx = new TransactionBuilder(chain.height)
       .from(inputs)
@@ -147,7 +184,7 @@ export class TransactionFactory {
         AuctionBidPlugin(cleanBox, {
           bidType,
           bidder: changeAddress
-        })
+        }, chain.height, actualBidAmount)
       )
       .payFee(MIN_FEE)
       .sendChangeTo(changeAddress)
