@@ -458,6 +458,12 @@ export function AuctionAutoDistributePlugin(
   currentHeight: number
 ): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
+    console.log("🔧 AuctionAutoDistributePlugin - Starting:", {
+      boxId: auctionBox.boxId,
+      currentHeight,
+      hasErgoTree: !!(auctionBox as any).ergoTree
+    });
+
     if (!auctionBox.additionalRegisters.R5) {
       throw new Error("Invalid auction box. Last bidder not present.");
     }
@@ -482,8 +488,17 @@ export function AuctionAutoDistributePlugin(
 
     addInputs(auctionBox);
 
+    // Use the ErgoTree from the input box to ensure we create output with same contract
+    const contractErgoTree = (auctionBox as any).ergoTree || COMET_AUCTION_CONTRACT;
+
+    console.log("✅ AuctionAutoDistributePlugin - Using ErgoTree:", {
+      hasErgoTree: !!(auctionBox as any).ergoTree,
+      ergoTreeLength: contractErgoTree?.length,
+      ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
+    });
+
     // Output 0: New auction box (reset to base amounts)
-    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractErgoTree)
       .addTokens({
         tokenId: COMET_TOKEN_ID,
         amount: BASE_COMET_AMOUNT
@@ -519,6 +534,8 @@ export function AuctionAutoDistributePlugin(
     }
 
     addOutputs([newAuctionBox, winnerBox, devBox], { index: 0 });
+
+    console.log("✅ AuctionAutoDistributePlugin - Complete");
   };
 }
 
@@ -529,6 +546,7 @@ export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
       boxId: auctionBox.boxId,
       value: auctionBox.value.toString(),
       assetsCount: auctionBox.assets.length,
+      hasErgoTree: !!(auctionBox as any).ergoTree,
       assets: auctionBox.assets.map(a => ({
         tokenId: a.tokenId,
         amount: a.amount.toString()
@@ -537,8 +555,14 @@ export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
 
     addInputs(auctionBox);
 
+    // Clean assets array to ensure they're plain objects
+    const cleanAssets = auctionBox.assets.map(asset => ({
+      tokenId: asset.tokenId,
+      amount: asset.amount
+    }));
+
     const ownerBox = new OutputBuilder(auctionBox.value, ErgoAddress.fromBase58(OWNER_PK)).addTokens(
-      auctionBox.assets
+      cleanAssets
     );
 
     console.log("✅ AuctionOwnerClaimPlugin - OutputBuilder created");
