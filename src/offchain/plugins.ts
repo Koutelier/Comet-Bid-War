@@ -364,20 +364,16 @@ export function AuctionBidPlugin(
     // Add auction box as input
     addInputs(auctionBox);
 
-    // Use the ErgoTree from the input box to ensure we create output with same contract
-    const contractErgoTree = (auctionBox as any).ergoTree || COMET_AUCTION_CONTRACT;
+    // Always use the COMET_AUCTION_CONTRACT constant to avoid serialization issues
+    // The ErgoTree from the blockchain may have different serialization that causes NonConsumedBytes errors
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
 
     console.log("🔧 AuctionBidPlugin - Building transaction:", {
       bidType: params.bidType,
       currentCometAmount: currentCometAmount.toString(),
       currentErgAmount: currentErgAmount.toString(),
-      hasErgoTree: !!(auctionBox as any).ergoTree,
-      ergoTreeLength: contractErgoTree?.length,
-      ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
+      usingConstantContract: true
     });
-
-    // Convert ErgoTree to ErgoAddress for proper wallet handling
-    const contractAddress = ErgoAddress.fromErgoTree(contractErgoTree);
 
     // Create new auction box with updated bid
     const newAuctionBox = new OutputBuilder(
@@ -510,17 +506,11 @@ export function AuctionAutoDistributePlugin(
 
     addInputs(auctionBox);
 
-    // Use the ErgoTree from the input box to ensure we create output with same contract
-    const contractErgoTree = (auctionBox as any).ergoTree || COMET_AUCTION_CONTRACT;
+    // Always use the COMET_AUCTION_CONTRACT constant to avoid serialization issues
+    // The ErgoTree from the blockchain may have different serialization that causes NonConsumedBytes errors
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
 
-    console.log("✅ AuctionAutoDistributePlugin - Using ErgoTree:", {
-      hasErgoTree: !!(auctionBox as any).ergoTree,
-      ergoTreeLength: contractErgoTree?.length,
-      ergoTreePreview: contractErgoTree?.substring(0, 50) + "..."
-    });
-
-    // Convert ErgoTree to ErgoAddress for proper wallet handling
-    const contractAddress = ErgoAddress.fromErgoTree(contractErgoTree);
+    console.log("✅ AuctionAutoDistributePlugin - Using constant contract");
 
     // Output 0: New auction box (reset to base amounts)
     const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
