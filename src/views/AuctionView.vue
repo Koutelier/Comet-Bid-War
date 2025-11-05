@@ -349,24 +349,68 @@ async function autoDistribute() {
 
             <div class="space-y-4">
               <!-- Status Badge -->
-              <div>
+              <div class="flex items-center gap-2 flex-wrap">
                 <span
-                  class="badge"
+                  class="badge badge-lg"
                   :class="{
                     'badge-success': auctionData.status === 'active',
                     'badge-error': auctionData.status === 'ended',
-                    'badge-warning': auctionData.status === 'claimable'
+                    'badge-warning': auctionData.status === 'claimable',
+                    'badge-info': auctionData.status === 'grace_period',
+                    'badge-secondary': auctionData.status === 'claimed'
                   }"
                 >
-                  {{ auctionData.status.toUpperCase() }}
+                  {{ auctionData.status === 'grace_period' ? 'GRACE PERIOD' : auctionData.status.toUpperCase() }}
+                </span>
+
+                <!-- V3: Winner Claimed Status -->
+                <span
+                  v-if="auctionData.winnerClaimed"
+                  class="badge badge-lg badge-success"
+                >
+                  ✅ Claimed
+                </span>
+                <span
+                  v-else-if="auctionData.status === 'claimable' || auctionData.status === 'grace_period'"
+                  class="badge badge-lg badge-error"
+                >
+                  🔴 Unclaimed
                 </span>
               </div>
 
+              <!-- V3: Bid Count -->
+              <div class="stat bg-base-300 rounded-lg">
+                <div class="stat-title">Bid Count</div>
+                <div class="stat-value text-2xl">
+                  {{ auctionData.bidCount }} / {{ auctionData.maxBids }}
+                  <span v-if="auctionData.bidCount >= auctionData.maxBids * 0.9" class="text-warning">⚠️</span>
+                </div>
+                <div class="stat-desc">
+                  {{ auctionData.maxBids - auctionData.bidCount }} bids remaining
+                </div>
+              </div>
+
               <!-- Time Remaining -->
-              <div class="stat">
-                <div class="stat-title">Time Remaining</div>
+              <div class="stat bg-base-300 rounded-lg">
+                <div class="stat-title">
+                  {{ auctionData.status === 'active' ? 'Time Remaining' : 'Auction Ended' }}
+                </div>
                 <div class="stat-value text-2xl">{{ auctionData.timeRemaining }}</div>
                 <div class="stat-desc">{{ auctionData.blocksRemaining }} blocks</div>
+              </div>
+
+              <!-- V3: Grace Period Countdown -->
+              <div v-if="auctionData.status === 'grace_period'" class="stat bg-info text-info-content rounded-lg">
+                <div class="stat-title">⏳ Grace Period</div>
+                <div class="stat-value text-2xl">{{ auctionData.graceTimeRemaining }}</div>
+                <div class="stat-desc">{{ auctionData.blocksUntilGraceEnd }} blocks until auto-claim</div>
+              </div>
+
+              <!-- V3: Time Since Last Bid -->
+              <div v-if="auctionData.lastBidder" class="stat bg-base-300 rounded-lg">
+                <div class="stat-title">Last Bid</div>
+                <div class="stat-value text-lg">{{ auctionData.timeSinceLastBid }} ago</div>
+                <div class="stat-desc">{{ auctionData.blocksSinceLastBid }} blocks ago</div>
               </div>
 
               <!-- Last Bidder -->
@@ -432,6 +476,20 @@ async function autoDistribute() {
             </div>
 
             <div v-else-if="auctionData.status === 'active'" class="space-y-4">
+              <!-- V3: Dynamic Minimum Bid Display -->
+              <div class="alert alert-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <div>
+                  <div class="font-bold">Minimum Bid Requirements (10% of pot)</div>
+                  <div class="text-sm">
+                    <span class="font-mono">COMET: {{ auctionData.minCometBidFormatted }}</span> |
+                    <span class="font-mono">ERG: {{ auctionData.minErgBidFormatted }}</span>
+                  </div>
+                </div>
+              </div>
+
               <!-- Bid Type Selection -->
               <div class="form-control">
                 <label class="label">
@@ -443,14 +501,20 @@ async function autoDistribute() {
                     :class="{ 'btn-active': selectedBidType === 'comet' }"
                     @click="selectedBidType = 'comet'"
                   >
-                    COMET ({{ formattedCometFee }})
+                    <div class="flex flex-col items-center">
+                      <span>COMET</span>
+                      <span class="text-xs opacity-70">Min: {{ auctionData.minCometBidFormatted }}</span>
+                    </div>
                   </button>
                   <button
                     class="btn flex-1"
                     :class="{ 'btn-active': selectedBidType === 'erg' }"
                     @click="selectedBidType = 'erg'"
                   >
-                    ERG ({{ formattedErgFee }})
+                    <div class="flex flex-col items-center">
+                      <span>ERG</span>
+                      <span class="text-xs opacity-70">Min: {{ auctionData.minErgBidFormatted }}</span>
+                    </div>
                   </button>
                 </div>
               </div>
@@ -467,7 +531,7 @@ async function autoDistribute() {
 
             <div v-else-if="auctionData.status === 'claimable'" class="space-y-4">
               <div class="alert alert-success">
-                <span>Congratulations! You won the auction!</span>
+                <span>🎉 Congratulations! You won the auction!</span>
               </div>
 
               <button
@@ -475,8 +539,41 @@ async function autoDistribute() {
                 :disabled="!canClaim"
                 @click="claimWinnings"
               >
-                {{ loading.transaction ? "Processing..." : "Claim Winnings" }}
+                {{ loading.transaction ? "Processing..." : "🎁 Claim Winnings" }}
               </button>
+            </div>
+
+            <!-- V3: Grace Period Status -->
+            <div v-else-if="auctionData.status === 'grace_period'" class="space-y-4">
+              <div v-if="auctionData.isUserLastBidder" class="alert alert-success">
+                <div>
+                  <div class="font-bold">🎉 You Won! Grace Period Active</div>
+                  <div class="text-sm">Claim your winnings within {{ auctionData.graceTimeRemaining }} or it will be auto-distributed</div>
+                </div>
+              </div>
+              <div v-else class="alert alert-info">
+                <div>
+                  <div class="font-bold">⏳ Grace Period Active</div>
+                  <div class="text-sm">Winner has {{ auctionData.graceTimeRemaining }} to claim before auto-distribution</div>
+                </div>
+              </div>
+
+              <button
+                v-if="auctionData.isUserLastBidder"
+                class="btn btn-success btn-lg w-full"
+                :disabled="!canClaim"
+                @click="claimWinnings"
+              >
+                {{ loading.transaction ? "Processing..." : "🎁 Claim Winnings Now" }}
+              </button>
+            </div>
+
+            <!-- V3: Claimed Status -->
+            <div v-else-if="auctionData.status === 'claimed'" class="alert alert-success">
+              <div>
+                <div class="font-bold">✅ Winner Claimed!</div>
+                <div class="text-sm">This round has been completed. A new round should start soon.</div>
+              </div>
             </div>
 
             <div v-else-if="auctionData.status === 'ended'" class="alert alert-info">

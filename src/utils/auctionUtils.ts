@@ -9,13 +9,17 @@ import {
   COMET_DECIMALS,
   BASE_COMET_AMOUNT,
   BASE_ERG_AMOUNT,
-  DEV_FEE_PERCENT
+  DEV_FEE_PERCENT,
+  GRACE_PERIOD,
+  MAX_BIDS_PER_ROUND,
+  COMET_ENTRY_FEE,
+  ERG_ENTRY_FEE
 } from "@/constants";
 import { AssetPriceRates } from "@/services/assetPricingService";
 import { StateTokenMetadata } from "@/stories";
 import { decimalizeBigNumber, getNetworkType } from "@/utils/otherUtils";
 
-export type AuctionStatus = "active" | "ended" | "claimable";
+export type AuctionStatus = "active" | "grace_period" | "ended" | "claimable" | "claimed";
 
 export type AuctionData = {
   box: Readonly<Box<string>>;
@@ -44,6 +48,21 @@ export type AuctionData = {
   blocksRemaining: number;
   timeRemaining: string;
   isUserLastBidder: boolean;
+
+  // V3 New Fields
+  bidCount: number;
+  maxBids: number;
+  lastBidHeight: number;
+  blocksSinceLastBid: number;
+  timeSinceLastBid: string;
+  winnerClaimed: boolean;
+  graceDeadline: number;
+  blocksUntilGraceEnd: number;
+  graceTimeRemaining: string;
+  minCometBid: BigNumber;
+  minErgBid: BigNumber;
+  minCometBidFormatted: string;
+  minErgBidFormatted: string;
 };
 
 /**
@@ -56,12 +75,17 @@ export function parseAuctionBox(
   currentHeight: number,
   ownAddresses: string[]
 ): AuctionData {
-  // Parse registers
+  // Parse V2 registers
   const bidDeadline = parseOr<number>(box.additionalRegisters.R4, 0);
   const lastBidderPK = box.additionalRegisters.R5 || "";
   const lastBidder = lastBidderPK
     ? ErgoAddress.fromPublicKey(lastBidderPK.substring(4)).encode(getNetworkType())
     : "";
+
+  // Parse V3 registers (with defaults for backwards compatibility)
+  const bidCount = parseOr<number>(box.additionalRegisters.R6, 0);
+  const lastBidHeight = parseOr<number>(box.additionalRegisters.R7, currentHeight);
+  const winnerClaimedFlag = parseOr<number>(box.additionalRegisters.R8, 0);
 
   // Parse COMET and ERG amounts - ensure explicit BigInt conversion
   // Box amounts might be string, number, or bigint from different sources
@@ -131,17 +155,53 @@ export function parseAuctionBox(
     .times(cometPriceUSD)
     .plus(ergPot.total.times(ergPriceUSD));
 
-  // Determine auction status
-  // CRITICAL: bidDeadline might be BigInt from register, currentHeight is number
-  // Convert bidDeadline to number if it's BigInt before arithmetic operations
-  const bidDeadlineNum = typeof bidDeadline === 'bigint' ? Number(bidDeadline) : bidDeadline;
-  const blocksRemaining = Math.max(0, bidDeadlineNum - currentHeight);
+  // V3: Calculate minimum bid increments (10% of winnable pot)
+  const minCometBidBigInt = winnableCometAmount > 0n
+    ? ((winnableCometAmount * 10n) / 100n > COMET_ENTRY_FEE
+      ? (winnableCometAmount * 10n) / 100n
+      : COMET_ENTRY_FEE)
+    : COMET_ENTRY_FEE;
 
-  const status: AuctionStatus =
-    blocksRemaining > 0 ? "active" : lastBidder && ownAddresses.includes(lastBidder) ? "claimable" : "ended";
+  const minErgBidBigInt = winnableErgAmount > 0n
+    ? ((winnableErgAmount * 10n) / 100n > ERG_ENTRY_FEE
+      ? (winnableErgAmount * 10n) / 100n
+      : ERG_ENTRY_FEE)
+    : ERG_ENTRY_FEE;
+
+  const minCometBid = decimalizeBigNumber(BigNumber(minCometBidBigInt.toString()), COMET_DECIMALS);
+  const minErgBid = decimalizeBigNumber(BigNumber(minErgBidBigInt.toString()), ERG_DECIMALS);
+
+  // V3: Calculate grace period information
+  const bidDeadlineNum = typeof bidDeadline === 'bigint' ? Number(bidDeadline) : bidDeadline;
+  const gracePeriodNum = typeof GRACE_PERIOD === 'bigint' ? Number(GRACE_PERIOD) : GRACE_PERIOD;
+  const maxBidsNum = typeof MAX_BIDS_PER_ROUND === 'bigint' ? Number(MAX_BIDS_PER_ROUND) : MAX_BIDS_PER_ROUND;
+  const graceDeadline = bidDeadlineNum + gracePeriodNum;
+
+  const blocksRemaining = Math.max(0, bidDeadlineNum - currentHeight);
+  const blocksUntilGraceEnd = Math.max(0, graceDeadline - currentHeight);
+
+  // V3: Calculate time since last bid
+  const lastBidHeightNum = typeof lastBidHeight === 'bigint' ? Number(lastBidHeight) : lastBidHeight;
+  const blocksSinceLastBid = Math.max(0, currentHeight - lastBidHeightNum);
+  const timeSinceLastBid = blocksToTime(blocksSinceLastBid);
+
+  // V3: Determine auction status (includes grace period and claimed states)
+  let status: AuctionStatus;
+  if (blocksRemaining > 0) {
+    status = "active";
+  } else if (blocksUntilGraceEnd > 0 && winnerClaimedFlag === 0) {
+    status = "grace_period"; // Ended but in grace period, winner can claim
+  } else if (winnerClaimedFlag === 1) {
+    status = "claimed"; // Winner has claimed
+  } else if (lastBidder && ownAddresses.includes(lastBidder)) {
+    status = "claimable"; // User is winner and can claim
+  } else {
+    status = "ended"; // Ended, not claimed, user is not winner
+  }
 
   // Calculate time remaining
   const timeRemaining = blocksToTime(blocksRemaining);
+  const graceTimeRemaining = blocksToTime(blocksUntilGraceEnd);
 
   // Check if user is the last bidder
   const isUserLastBidder = lastBidder ? ownAddresses.includes(lastBidder) : false;
@@ -158,7 +218,22 @@ export function parseAuctionBox(
     status,
     blocksRemaining,
     timeRemaining,
-    isUserLastBidder
+    isUserLastBidder,
+
+    // V3 New Fields
+    bidCount,
+    maxBids: maxBidsNum,
+    lastBidHeight: lastBidHeightNum,
+    blocksSinceLastBid,
+    timeSinceLastBid,
+    winnerClaimed: winnerClaimedFlag === 1,
+    graceDeadline,
+    blocksUntilGraceEnd,
+    graceTimeRemaining,
+    minCometBid,
+    minErgBid,
+    minCometBidFormatted: formatCometAmount(minCometBid),
+    minErgBidFormatted: formatErgAmount(minErgBid)
   };
 }
 
