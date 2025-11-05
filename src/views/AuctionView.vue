@@ -243,9 +243,30 @@ async function autoDistribute() {
 
     // Reload auction box after transaction
     setTimeout(() => loadAuctionBox(), 3000);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error auto-distributing:", error);
-    errorMessage.value = `Failed to auto-distribute: ${error}`;
+    console.error("Error type:", typeof error);
+    console.error("Error.message:", error?.message);
+    console.error("Error.code:", error?.code);
+    console.error("Error.info:", error?.info);
+    console.error("Error stack:", error?.stack);
+
+    // Try to extract all error properties
+    if (error && typeof error === 'object') {
+      const errorProps: any = {};
+      for (const key in error) {
+        try {
+          if (typeof error[key] !== 'function') {
+            errorProps[key] = error[key];
+          }
+        } catch (e) {
+          errorProps[key] = '<unable to access>';
+        }
+      }
+      console.error("All error properties:", errorProps);
+    }
+
+    errorMessage.value = `Failed to auto-distribute: ${error?.info || error?.message || String(error)}`;
   } finally {
     loading.transaction = false;
   }

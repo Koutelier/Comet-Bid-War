@@ -6,7 +6,8 @@ import {
   FleetPlugin,
   OutputBuilder,
   SAFE_MIN_BOX_VALUE,
-  TokenAmount
+  TokenAmount,
+  TokensCollection
 } from "@fleet-sdk/core";
 import { blake2b256, hex } from "@fleet-sdk/crypto";
 import { parse, SByte, SColl, SGroupElement, SInt, SLong, SSigmaProp } from "@fleet-sdk/serializer";
@@ -324,10 +325,14 @@ export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
     // Convert ErgoTree to ErgoAddress for proper wallet handling
     const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT);
     const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
-      .addTokens({
-        tokenId: COMET_TOKEN_ID,
-        amount: BASE_COMET_AMOUNT
-      })
+      .addTokens(
+        new TokensCollection([
+          {
+            tokenId: COMET_TOKEN_ID,
+            amount: BASE_COMET_AMOUNT
+          }
+        ])
+      )
       .setAdditionalRegisters({
         R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(), // Initial deadline
         R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex() // Bot as initial "bidder"
@@ -388,10 +393,14 @@ export function AuctionBidPlugin(
         ? BigInt(currentCometAmount) + COMET_ENTRY_FEE
         : BigInt(currentCometAmount);
 
-    newAuctionBox.addTokens({
-      tokenId: COMET_TOKEN_ID,
-      amount: newCometAmount
-    });
+    newAuctionBox.addTokens(
+      new TokensCollection([
+        {
+          tokenId: COMET_TOKEN_ID,
+          amount: newCometAmount
+        }
+      ])
+    );
 
     // Set registers: R4 = bidDeadline, R5 = new bidder PK
     newAuctionBox.setAdditionalRegisters({
@@ -438,20 +447,28 @@ export function AuctionManualClaimPlugin(
       ErgoAddress.fromBase58(OWNER_PK)
     );
     if (devCometFee > 0n) {
-      devBox.addTokens({
-        tokenId: COMET_TOKEN_ID,
-        amount: devCometFee
-      });
+      devBox.addTokens(
+        new TokensCollection([
+          {
+            tokenId: COMET_TOKEN_ID,
+            amount: devCometFee
+          }
+        ])
+      );
     }
 
     // Output 1: Winner box (includes base amounts)
     const winnerBox = new OutputBuilder(
       winnerErgAmount + BASE_ERG_AMOUNT,
       winner
-    ).addTokens({
-      tokenId: COMET_TOKEN_ID,
-      amount: winnerCometAmount + BASE_COMET_AMOUNT
-    });
+    ).addTokens(
+      new TokensCollection([
+        {
+          tokenId: COMET_TOKEN_ID,
+          amount: winnerCometAmount + BASE_COMET_AMOUNT
+        }
+      ])
+    );
 
     addOutputs([devBox, winnerBox], { index: 0 });
   };
@@ -507,10 +524,14 @@ export function AuctionAutoDistributePlugin(
 
     // Output 0: New auction box (reset to base amounts)
     const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
-      .addTokens({
-        tokenId: COMET_TOKEN_ID,
-        amount: BASE_COMET_AMOUNT
-      })
+      .addTokens(
+        new TokensCollection([
+          {
+            tokenId: COMET_TOKEN_ID,
+            amount: BASE_COMET_AMOUNT
+          }
+        ])
+      )
       .setAdditionalRegisters({
         R4: SLong(BigInt(currentHeight) + BID_DURATION).toHex(),
         R5: SSigmaProp(SGroupElement(first(ErgoAddress.fromBase58(BOT_PK).getPublicKeys()))).toHex()
@@ -523,10 +544,14 @@ export function AuctionAutoDistributePlugin(
       winnerAddress
     );
     if (winnerCometAmount > 0n) {
-      winnerBox.addTokens({
-        tokenId: COMET_TOKEN_ID,
-        amount: winnerCometAmount
-      });
+      winnerBox.addTokens(
+        new TokensCollection([
+          {
+            tokenId: COMET_TOKEN_ID,
+            amount: winnerCometAmount
+          }
+        ])
+      );
     }
 
     // Output 2: Dev fee box
@@ -535,10 +560,14 @@ export function AuctionAutoDistributePlugin(
       ErgoAddress.fromBase58(OWNER_PK)
     );
     if (devCometFee > 0n) {
-      devBox.addTokens({
-        tokenId: COMET_TOKEN_ID,
-        amount: devCometFee
-      });
+      devBox.addTokens(
+        new TokensCollection([
+          {
+            tokenId: COMET_TOKEN_ID,
+            amount: devCometFee
+          }
+        ])
+      );
     }
 
     addOutputs([newAuctionBox, winnerBox, devBox], { index: 0 });
@@ -563,14 +592,14 @@ export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
 
     addInputs(auctionBox);
 
-    // Clean assets array to ensure they're plain objects
+    // Clean assets array to ensure they're plain objects and wrap in TokensCollection
     const cleanAssets = auctionBox.assets.map(asset => ({
       tokenId: asset.tokenId,
       amount: asset.amount
     }));
 
     const ownerBox = new OutputBuilder(auctionBox.value, ErgoAddress.fromBase58(OWNER_PK)).addTokens(
-      cleanAssets
+      new TokensCollection(cleanAssets)
     );
 
     console.log("✅ AuctionOwnerClaimPlugin - OutputBuilder created");

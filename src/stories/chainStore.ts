@@ -57,7 +57,7 @@ export const useChainStore = defineStore("chain", () => {
       }
     }
 
-    return acc.times(rates[ERG_TOKEN_ID].fiat);
+    return acc.times(rates[ERG_TOKEN_ID]?.fiat || 0);
   });
 
   // watchers
