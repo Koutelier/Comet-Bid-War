@@ -27,6 +27,7 @@ import {
   MIN_PAYMENT_THRESHOLD,
   MIN_BID_INCREMENT_PERCENT
 } from "@/constants";
+import { getNetworkType } from "@/utils";
 
 export type OpenOrderType = "on-close" | "fixed-height";
 
@@ -358,8 +359,9 @@ export type AuctionBidParams = {
 export function AuctionGenesisPlugin(currentHeight: number): FleetPlugin {
   return ({ addOutputs }) => {
     // Create the first auction box with base amounts
-    // Use ErgoTree directly
-    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+    // Convert ErgoTree to ErgoAddress for proper serialization
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT, getNetworkType());
+    const genesisBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
       .addTokens(
         new TokensCollection([
           {
@@ -430,9 +432,10 @@ export function AuctionBidPlugin(
         : currentErgAmount;
 
     // Create new auction box with updated bid
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT, getNetworkType());
     const newAuctionBox = new OutputBuilder(
       newErgAmount,
-      COMET_AUCTION_CONTRACT
+      contractAddress
     );
 
     newAuctionBox.addTokens(
@@ -579,7 +582,8 @@ export function AuctionAutoDistributePlugin(
 
     // Output 0: New auction box (MUST BE FIRST, reset to base amounts)
     // V3: Initialize ALL registers for new round
-    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, COMET_AUCTION_CONTRACT)
+    const contractAddress = ErgoAddress.fromErgoTree(COMET_AUCTION_CONTRACT, getNetworkType());
+    const newAuctionBox = new OutputBuilder(BASE_ERG_AMOUNT, contractAddress)
       .addTokens(
         new TokensCollection([
           {
