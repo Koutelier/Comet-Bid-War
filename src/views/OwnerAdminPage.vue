@@ -120,13 +120,42 @@ async function claimAllTokens() {
     successMessage.value = "✅ Successfully claimed all tokens from auction box!";
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error: any) {
-    console.error("Error claiming tokens:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      stack: error?.stack,
-      error: JSON.stringify(error, null, 2)
-    });
-    errorMessage.value = `Failed to claim tokens: ${error?.message || error}`;
+    console.error("❌ Error claiming tokens:", error);
+
+    // Try to decode the error message if it's serialized character-by-character
+    let decodedError = '';
+    if (error && typeof error === 'object' && typeof error[0] === 'string') {
+      // Error is serialized as character array
+      let i = 0;
+      while (error[i] !== undefined) {
+        decodedError += error[i];
+        i++;
+      }
+      console.error("📝 Decoded error message:", decodedError);
+    }
+
+    console.error("Error type:", typeof error);
+    console.error("Error.message:", error?.message);
+    console.error("Error.code:", error?.code);
+    console.error("Error.info:", error?.info);
+    console.error("Error.toString():", error?.toString?.());
+
+    // Log all error properties
+    if (error && typeof error === 'object') {
+      const errorProps: any = {};
+      for (const key in error) {
+        try {
+          if (typeof error[key] !== 'function') {
+            errorProps[key] = error[key];
+          }
+        } catch (e) {
+          errorProps[key] = '<unable to access>';
+        }
+      }
+      console.error("All error properties:", errorProps);
+    }
+
+    errorMessage.value = `Failed to claim tokens: ${decodedError || error?.info || error?.message || 'Unknown error'}`;
   } finally {
     loading.transaction = false;
   }

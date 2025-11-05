@@ -105,28 +105,42 @@ async function placeBid() {
     setTimeout(() => loadAuctionBox(), 3000);
   } catch (error: any) {
     console.error("❌ Error placing bid:", error);
+
+    // Try to decode the error message if it's serialized character-by-character
+    let decodedError = '';
+    if (error && typeof error === 'object' && typeof error[0] === 'string') {
+      // Error is serialized as character array
+      let i = 0;
+      while (error[i] !== undefined) {
+        decodedError += error[i];
+        i++;
+      }
+      console.error("📝 Decoded error message:", decodedError);
+    }
+
     console.error("Error type:", typeof error);
     console.error("Error constructor:", error?.constructor?.name);
+    console.error("Error.message:", error?.message);
+    console.error("Error.code:", error?.code);
+    console.error("Error.info:", error?.info);
+    console.error("Error.toString():", error?.toString?.());
 
     // Try to extract all error properties
     if (error && typeof error === 'object') {
       const errorProps: any = {};
       for (const key in error) {
         try {
-          errorProps[key] = error[key];
+          if (typeof error[key] !== 'function') {
+            errorProps[key] = error[key];
+          }
         } catch (e) {
           errorProps[key] = '<unable to access>';
         }
       }
-      console.error("Error properties:", errorProps);
+      console.error("All error properties:", errorProps);
     }
 
-    console.error("Error.message:", error?.message);
-    console.error("Error.code:", error?.code);
-    console.error("Error.info:", error?.info);
-    console.error("Error.toString():", error?.toString());
-
-    errorMessage.value = `Failed to place bid: ${error?.info || error?.message || String(error)}`;
+    errorMessage.value = `Failed to place bid: ${decodedError || error?.info || error?.message || String(error)}`;
   } finally {
     loading.transaction = false;
   }

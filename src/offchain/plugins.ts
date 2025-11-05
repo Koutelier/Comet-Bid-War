@@ -525,12 +525,26 @@ export function AuctionAutoDistributePlugin(
 // Plugin for owner to claim invalid funds
 export function AuctionOwnerClaimPlugin(auctionBox: Box<Amount>): FleetPlugin {
   return ({ addInputs, addOutputs }) => {
+    console.log("🔧 AuctionOwnerClaimPlugin - Starting:", {
+      boxId: auctionBox.boxId,
+      value: auctionBox.value.toString(),
+      assetsCount: auctionBox.assets.length,
+      assets: auctionBox.assets.map(a => ({
+        tokenId: a.tokenId,
+        amount: a.amount.toString()
+      }))
+    });
+
     addInputs(auctionBox);
 
     const ownerBox = new OutputBuilder(auctionBox.value, ErgoAddress.fromBase58(OWNER_PK)).addTokens(
       auctionBox.assets
     );
 
+    console.log("✅ AuctionOwnerClaimPlugin - OutputBuilder created");
+
     addOutputs(ownerBox, { index: 0 });
+
+    console.log("✅ AuctionOwnerClaimPlugin - Complete");
   };
 }
