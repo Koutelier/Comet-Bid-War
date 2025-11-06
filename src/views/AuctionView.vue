@@ -383,10 +383,10 @@ async function autoDistribute() {
                 <div class="stat-title">Bid Count</div>
                 <div class="stat-value text-2xl">
                   {{ auctionData.bidCount }} / {{ auctionData.maxBids }}
-                  <span v-if="auctionData.bidCount >= auctionData.maxBids * 0.9" class="text-warning">⚠️</span>
+                  <span v-if="auctionData.bidCount >= Math.floor(auctionData.maxBids * 0.9)" class="text-warning">⚠️</span>
                 </div>
                 <div class="stat-desc">
-                  {{ auctionData.maxBids - auctionData.bidCount }} bids remaining
+                  {{ Math.max(0, auctionData.maxBids - auctionData.bidCount) }} bids remaining
                 </div>
               </div>
 
