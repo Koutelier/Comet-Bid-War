@@ -588,6 +588,14 @@ export function AuctionAutoDistributePlugin(
     const winnableCometAmount = totalCometAmount - BASE_COMET_AMOUNT;
     const winnableErgAmount = totalErgAmount - BASE_ERG_AMOUNT;
 
+    // V3: Check if there were any real bids
+    const hadRealBids = winnableCometAmount > 0n || winnableErgAmount > 0n;
+
+    console.log("🤖 Auto-distribute check:");
+    console.log("  Winnable COMET:", winnableCometAmount);
+    console.log("  Winnable ERG:", winnableErgAmount);
+    console.log("  Had real bids?", hadRealBids);
+
     // V3: SAFE fee calculation (divide first to prevent overflow)
     const devCometFee = (winnableCometAmount / 100n) * DEV_FEE_PERCENT;
     const devErgFee = (winnableErgAmount / 100n) * DEV_FEE_PERCENT;
@@ -596,13 +604,8 @@ export function AuctionAutoDistributePlugin(
     const winnerCometAmount = winnableCometAmount - devCometFee;
     const winnerErgAmount = winnableErgAmount - devErgFee;
 
-    // V3: Validate minimum thresholds
-    if (devErgFee < MIN_PAYMENT_THRESHOLD) {
-      throw new Error("Dev fee below minimum threshold");
-    }
-    if (winnerErgAmount < MIN_PAYMENT_THRESHOLD) {
-      throw new Error("Winner amount below minimum threshold");
-    }
+    // Note: No validation needed - winner/dev boxes will use SAFE_MIN_BOX_VALUE if amounts are 0
+    // This allows the "no bids" case to work: bot gets 0.001 ERG, dev gets 0.001 ERG
 
     addInputs(auctionBox);
 
@@ -626,7 +629,8 @@ export function AuctionAutoDistributePlugin(
         R8: SLong(0n).toHex() // V3: Reset claimed flag to 0
       });
 
-    // Output 1: Winner box
+    // Output 1: Winner box (bot if no bids, or last bidder)
+    // If no bids: winner gets 0 COMET + SAFE_MIN_BOX_VALUE ERG
     const winnerAddress = ErgoAddress.fromPublicKey(lastBidderPK.substring(4));
     const winnerBox = new OutputBuilder(
       winnerErgAmount > SAFE_MIN_BOX_VALUE ? winnerErgAmount : SAFE_MIN_BOX_VALUE,
@@ -644,6 +648,7 @@ export function AuctionAutoDistributePlugin(
     }
 
     // Output 2: Dev fee box
+    // If no bids: dev gets 0 COMET + SAFE_MIN_BOX_VALUE ERG
     const devBox = new OutputBuilder(
       devErgFee > SAFE_MIN_BOX_VALUE ? devErgFee : SAFE_MIN_BOX_VALUE,
       ErgoAddress.fromBase58(OWNER_PK)
@@ -657,6 +662,12 @@ export function AuctionAutoDistributePlugin(
           }
         ])
       );
+    }
+
+    if (hadRealBids) {
+      console.log("✅ Auto-distribute: Had bids - winner and dev get fees");
+    } else {
+      console.log("⚪ Auto-distribute: No bids - winner (bot) and dev get minimum ERG only");
     }
 
     addOutputs([newAuctionBox, winnerBox, devBox], { index: 0 });
